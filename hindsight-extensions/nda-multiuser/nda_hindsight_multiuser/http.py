@@ -90,7 +90,6 @@ def _user_public(u) -> dict:
 class NdaHttpExtension(HttpExtension):
     def get_router(self, memory: "MemoryEngine") -> APIRouter:
         router = APIRouter(tags=["NDA multi-user"])
-        ext = self
 
         @router.get("/nda/v1/me")
         async def me(caller: AuthResult = Depends(require_user)):
@@ -111,8 +110,10 @@ class NdaHttpExtension(HttpExtension):
             except InvalidHandle as e:
                 raise HTTPException(status_code=400, detail=str(e))
             # Provision the user's Hindsight schema now, so the first request
-            # does not pay for it (and it is ready for the dashboard).
-            await ext.context.run_migration(user.schema_name)
+            # does not pay for it. The HTTP extension has no context, so this
+            # goes through the tenant extension's registered provisioner; if none
+            # is registered, the tenant extension provisions lazily on first auth.
+            await shared.provision(user.schema_name)
             out = {"user": _user_public(user)}
             if body.issue_first_key:
                 issued, row = await store.issue_user_key(user.handle, body.first_key_label, actor=actor)

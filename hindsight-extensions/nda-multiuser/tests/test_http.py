@@ -20,12 +20,8 @@ from nda_hindsight_multiuser.store import AuthStore  # noqa: E402
 PEPPER = "test-pepper-value"
 
 
-class FakeContext:
-    def __init__(self):
-        self.migrated = []
-
-    async def run_migration(self, schema):
-        self.migrated.append(schema)
+async def _record(bucket, schema):
+    bucket.append(schema)
 
 
 @pytest_asyncio.fixture
@@ -33,10 +29,12 @@ async def ctx(pool):
     store = AuthStore(pool, pepper=PEPPER)
     await store.init_schema()
     shared.set_store(store)
+    provisioned: list[str] = []
+    shared.set_provisioner(lambda schema: _record(provisioned, schema))
     admin_key, _ = await store.issue_admin_key("ops", "bootstrap", actor="system")
 
     ext = NdaHttpExtension({})
-    ext.set_context(FakeContext())
+    ext.provisioned = provisioned  # type: ignore[attr-defined]
     app = FastAPI()
     app.include_router(ext.get_router(memory=None), prefix="/ext")
     transport = httpx.ASGITransport(app=app)
@@ -59,7 +57,7 @@ async def test_user_crud_and_key_lifecycle(ctx):
     r = await c.post("/ext/nda/v1/admin/users", json={"handle": "Alice", "display_name": "Alice A."}, headers=_auth(admin))
     assert r.status_code == 201, r.text
     assert r.json()["user"]["handle"] == "alice"
-    assert "u_alice" in ext.context.migrated
+    assert "u_alice" in ext.provisioned
 
     assert (await c.post("/ext/nda/v1/admin/users", json={"handle": "alice"}, headers=_auth(admin))).status_code == 409
 

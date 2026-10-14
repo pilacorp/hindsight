@@ -58,6 +58,9 @@ class NdaTenantExtension(TenantExtension):
         self._store = AuthStore(pool, pepper=self._pepper)
         await self._store.init_schema()
         shared.set_store(self._store)
+        # The HTTP extension gets no context; lend it our provisioner so it can
+        # provision a new user's schema at creation time.
+        shared.set_provisioner(self._ensure_provisioned)
 
     async def authenticate(self, context: RequestContext) -> TenantContext:
         if self._store is None:
