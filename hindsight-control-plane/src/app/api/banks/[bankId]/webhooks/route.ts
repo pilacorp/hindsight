@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bank
   }
   const path = `/webhooks${queryParams.toString() ? `?${queryParams}` : ""}`;
   const res = await fetch(dataplaneBankUrl(bankId, path), {
-    headers: getDataplaneHeaders({ "Content-Type": "application/json" }),
+    headers: await getDataplaneHeaders({ "Content-Type": "application/json" }),
   });
   const data = await res.json();
   if (!res.ok)
@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ban
   const body = await request.json();
   const res = await fetch(dataplaneBankUrl(bankId, "/webhooks"), {
     method: "POST",
-    headers: getDataplaneHeaders({ "Content-Type": "application/json" }),
+    headers: await getDataplaneHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   const data = await res.json();

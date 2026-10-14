@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { localizeApiErrorPayload } from "@/lib/i18n/api-errors";
-import { sdk, lowLevelClient } from "@/lib/hindsight-client";
+import { sdk, getClient } from "@/lib/hindsight-client";
 
 export async function GET(request: Request) {
   try {
     const response = await sdk.getVersion({
-      client: lowLevelClient,
+      client: (await getClient()),
     });
 
     if (response.error) {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     const data = response.data as Record<string, unknown>;
     const features = (data.features ?? {}) as Record<string, boolean>;
-    features.access_key_auth = !!process.env.HINDSIGHT_CP_ACCESS_KEY;
+    features.per_user_auth = !!process.env.HINDSIGHT_CP_SESSION_SECRET;
     data.features = features;
 
     return NextResponse.json(data, { status: 200 });

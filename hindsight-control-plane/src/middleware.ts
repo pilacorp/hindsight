@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { localizeApiErrorPayload } from "@/lib/i18n/api-errors";
 import createIntlMiddleware from "next-intl/middleware";
-
-import { ACCESS_KEY_COOKIE, verifySessionToken } from "@/lib/auth/session";
+import { SESSION_COOKIE, decryptSession, type SessionData } from "@/lib/auth/nda-session";
 import { stripBasePath, withBasePath } from "@/lib/base-path";
 import { routing } from "@/i18n/routing";
 
-// Routes that don't require authentication
+// Reachable without a session.
 const PUBLIC_PATTERNS = [
   "/login",
   "/api/auth/",
@@ -20,69 +19,74 @@ const PUBLIC_PATTERNS = [
   "/static",
 ];
 
+// Admin-only prefixes; a user session is rejected here, a user never sees admin.
+const ADMIN_PATTERNS = ["/admin", "/api/admin"];
+
 const intlMiddleware = createIntlMiddleware(routing);
 
+function isAdminPath(path: string): boolean {
+  return ADMIN_PATTERNS.some((p) => path === p || path.startsWith(p + "/"));
+}
+
 export async function middleware(request: NextRequest) {
-  const accessKey = process.env.HINDSIGHT_CP_ACCESS_KEY;
+  const secret = process.env.HINDSIGHT_CP_SESSION_SECRET || "";
   const { pathname } = request.nextUrl;
   const appPathname = stripBasePath(pathname);
 
-  // API routes are not locale-prefixed — handle auth directly without i18n routing.
+  const session: SessionData | null = secret
+    ? await decryptSession(request.cookies.get(SESSION_COOKIE)?.value, secret)
+    : null;
+  const isPublic = PUBLIC_PATTERNS.some((pattern) => appPathname.startsWith(pattern));
+
+  // API routes: enforce auth directly (no i18n).
   if (appPathname.startsWith("/api/")) {
-    if (!accessKey) {
-      return NextResponse.next();
-    }
-
-    const isPublic = PUBLIC_PATTERNS.some((pattern) => appPathname.startsWith(pattern));
-    if (isPublic) {
-      return NextResponse.next();
-    }
-
-    const sessionCookie = request.cookies.get(ACCESS_KEY_COOKIE)?.value;
-    const isAuthenticated = await verifySessionToken(sessionCookie, accessKey);
-
-    if (!isAuthenticated) {
-      return NextResponse.json(
-        localizeApiErrorPayload(request, {
-          error: "Unauthorized",
-          errorKey: "api.errors.auth.unauthorized",
-        }),
-        { status: 401 }
-      );
-    }
-
+    if (isPublic) return NextResponse.next();
+    if (!session) return unauthorized(request);
+    if (isAdminPath(appPathname) && session.kind !== "admin") return forbidden(request);
+    if (!isAdminPath(appPathname) && session.kind === "admin") return forbidden(request);
     return NextResponse.next();
   }
 
-  // Page routes: enforce auth first, then delegate to the i18n middleware for
-  // locale negotiation and rewriting. With localePrefix "never" the locale is
-  // never in the path, so appPathname is already the canonical route.
-  if (accessKey) {
-    const isPublic = PUBLIC_PATTERNS.some((pattern) => appPathname.startsWith(pattern));
-
-    if (!isPublic) {
-      const sessionCookie = request.cookies.get(ACCESS_KEY_COOKIE)?.value;
-      const isAuthenticated = await verifySessionToken(sessionCookie, accessKey);
-
-      if (!isAuthenticated) {
-        // Next.js middleware redirects do not automatically inherit next.config basePath.
-        // Prefix the target explicitly, but keep returnTo as the app-relative path so
-        // client-side router.push() does not double-prefix after login.
-        const loginUrl = new URL(withBasePath("/login"), request.url);
-        loginUrl.searchParams.set("returnTo", appPathname);
-        return NextResponse.redirect(loginUrl);
-      }
-    }
+  // Page routes: enforce auth, then hand off to i18n.
+  if (!isPublic) {
+    if (!session) return redirectToLogin(request, appPathname);
+    // An admin may only see admin pages; a user may not see admin pages.
+    if (isAdminPath(appPathname) && session.kind !== "admin") return redirectHome(request);
+    if (!isAdminPath(appPathname) && session.kind === "admin") return redirectAdmin(request);
   }
 
   return intlMiddleware(request);
 }
 
+function unauthorized(request: NextRequest) {
+  return NextResponse.json(
+    localizeApiErrorPayload(request, { error: "Unauthorized", errorKey: "api.errors.auth.unauthorized" }),
+    { status: 401 }
+  );
+}
+
+function forbidden(request: NextRequest) {
+  return NextResponse.json(
+    localizeApiErrorPayload(request, { error: "Forbidden", errorKey: "api.errors.auth.unauthorized" }),
+    { status: 403 }
+  );
+}
+
+function redirectToLogin(request: NextRequest, appPathname: string) {
+  const loginUrl = new URL(withBasePath("/login"), request.url);
+  loginUrl.searchParams.set("returnTo", appPathname);
+  return NextResponse.redirect(loginUrl);
+}
+
+function redirectHome(request: NextRequest) {
+  return NextResponse.redirect(new URL(withBasePath("/"), request.url));
+}
+
+function redirectAdmin(request: NextRequest) {
+  return NextResponse.redirect(new URL(withBasePath("/admin"), request.url));
+}
+
 export const config = {
-  // Match all paths except Next.js internals and static assets.
-  // - Use an explicit file extension allowlist instead of .*\..* so that
-  //   dynamic segments containing dots (e.g. bank IDs like
-  //   "SX.Products.GovComply.Build") still get the i18n locale rewrite.
   matcher:
     "/((?!_next|_vercel|.*\\.(?:png|jpe?g|gif|svg|webp|ico|css|js|map|woff2?|ttf|eot|txt|xml|json)$).*)",
 };

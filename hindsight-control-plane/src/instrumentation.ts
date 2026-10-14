@@ -4,12 +4,12 @@
  */
 export async function register() {
   const dataplaneUrl = process.env.HINDSIGHT_CP_DATAPLANE_API_URL || "http://localhost:8888";
-  const apiKey = process.env.HINDSIGHT_CP_DATAPLANE_API_KEY || "";
+  const hasSessionSecret = !!process.env.HINDSIGHT_CP_SESSION_SECRET;
 
   console.log(`[Control Plane] Connecting to dataplane at: ${dataplaneUrl}`);
-  if (apiKey) {
-    console.log("[Control Plane] Using API key authentication");
+  if (hasSessionSecret) {
+    console.log("[Control Plane] Per-user login enabled (request-scoped auth)");
   } else {
-    console.log("[Control Plane] No API key configured (public access)");
+    console.error("[Control Plane] HINDSIGHT_CP_SESSION_SECRET is not set — login is disabled");
   }
 }

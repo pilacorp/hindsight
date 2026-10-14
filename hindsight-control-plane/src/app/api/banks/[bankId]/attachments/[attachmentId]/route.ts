@@ -9,7 +9,7 @@ import { DATAPLANE_URL, getDataplaneHeaders } from "@/lib/hindsight-client";
  * placeholder token where each one sat, and the UI turns those back into
  * pictures and file cards by pointing at this route. It exists because the
  * browser has no dataplane credentials: the API key lives server-side in
- * `getDataplaneHeaders()`, so the bytes are fetched here and streamed on.
+ * `await getDataplaneHeaders()`, so the bytes are fetched here and streamed on.
  *
  * The Content-Type the dataplane returns is passed through, which is the
  * caller's own declared type — see the retain docs for what that implies about
@@ -36,7 +36,7 @@ export async function GET(
     }
 
     const path = `/v1/default/banks/${encodeURIComponent(bankId)}/attachments/${attachmentId}`;
-    const response = await fetch(`${DATAPLANE_URL}${path}`, { headers: getDataplaneHeaders() });
+    const response = await fetch(`${DATAPLANE_URL}${path}`, { headers: await getDataplaneHeaders() });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: response.statusText }));
       return NextResponse.json(error, { status: response.status });

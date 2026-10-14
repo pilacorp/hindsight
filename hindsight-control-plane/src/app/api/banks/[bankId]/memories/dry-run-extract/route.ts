@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { lowLevelClient, sdk } from "@/lib/hindsight-client";
+import { getClient, sdk } from "@/lib/hindsight-client";
 import { respondWithSdk } from "@/lib/sdk-response";
 
 /**
@@ -14,7 +14,7 @@ export async function POST(
   const { bankId } = await params;
   const body = await request.json();
   const response = await sdk.dryRunExtractMemories({
-    client: lowLevelClient,
+    client: (await getClient()),
     path: { bank_id: bankId },
     body,
   });

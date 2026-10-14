@@ -8,7 +8,7 @@ const { listBanks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/hindsight-client", () => ({
   sdk: { listBanks },
-  lowLevelClient: {},
+  getClient: async () => ({}),
 }));
 
 vi.mock("@/lib/sdk-response", () => ({
