@@ -3,8 +3,7 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { BankProvider } from "@/lib/bank-context";
-import { FeaturesProvider } from "@/lib/features-context";
+import { MemoryProviders } from "@/components/memory-providers";
 import { ThemeProvider } from "@/lib/theme-context";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -68,11 +67,9 @@ export default async function LocaleLayout({
       <body className="bg-background text-foreground">
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <ThemeProvider>
-          <FeaturesProvider>
-            <BankProvider>
-              <NextIntlClientProvider>{children}</NextIntlClientProvider>
-            </BankProvider>
-          </FeaturesProvider>
+          <NextIntlClientProvider>
+            <MemoryProviders>{children}</MemoryProviders>
+          </NextIntlClientProvider>
         </ThemeProvider>
         <Toaster />
       </body>
