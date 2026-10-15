@@ -147,3 +147,11 @@ async def test_user_stats_counts_only(store):
     await store.create_user("statsunit", "S", actor=ACTOR)
     s = await store.user_stats("statsunit")
     assert s == {"banks": 0, "memories": 0, "documents": 0, "last_activity": None}
+
+
+async def test_user_usage_zeros_when_no_schema(store):
+    # Unprovisioned schema -> zero usage, no error (mirrors user_stats).
+    await store.create_user("usageunit", "U", actor=ACTOR)
+    u = await store.user_usage("usageunit")
+    empty = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    assert u == {"total": empty, "last_30d": empty, "by_model": []}

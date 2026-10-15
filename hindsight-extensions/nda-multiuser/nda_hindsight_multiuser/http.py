@@ -187,6 +187,13 @@ class NdaHttpExtension(HttpExtension):
                 raise HTTPException(status_code=404, detail="no such user")
             return await store.user_stats(handle)
 
+        @router.get("/nda/v1/admin/users/{handle}/usage")
+        async def user_usage(handle: str, caller: AuthResult = Depends(require_admin)):
+            store = shared.get_store()
+            if await store.get_user(handle) is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            return await store.user_usage(handle)
+
         @router.get("/nda/v1/admin/users/{handle}/keys")
         async def list_keys(handle: str, caller: AuthResult = Depends(require_admin)):
             return {"keys": [_key_public(k) for k in await shared.get_store().list_user_keys(handle)]}

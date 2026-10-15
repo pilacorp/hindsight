@@ -25,12 +25,28 @@ interface Stats {
   last_activity: string | null;
 }
 
+interface UsageTotals {
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
+
+interface Usage {
+  total: UsageTotals;
+  last_30d: UsageTotals;
+  by_model: { model: string | null; calls: number; total_tokens: number }[];
+}
+
+const fmt = (n: number) => n.toLocaleString();
+
 export default function UserDetailPage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = use(params);
   const [displayName, setDisplayName] = useState("");
   const [status, setStatus] = useState("");
   const [keys, setKeys] = useState<KeyRow[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const [label, setLabel] = useState("");
   const [newKey, setNewKey] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -50,6 +66,8 @@ export default function UserDetailPage({ params }: { params: Promise<{ handle: s
       setKeys(data.keys ?? []);
       const sres = await adminFetch(`/api/admin/users/${encodeURIComponent(handle)}/stats`);
       if (sres.ok) setStats(await sres.json());
+      const ures = await adminFetch(`/api/admin/users/${encodeURIComponent(handle)}/usage`);
+      if (ures.ok) setUsage(await ures.json());
     } finally {
       setLoading(false);
     }
@@ -142,6 +160,58 @@ export default function UserDetailPage({ params }: { params: Promise<{ handle: s
           <Button variant="secondary" onClick={toggle}>
             {status === "active" ? "Disable" : "Enable"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <h2 className="font-medium">LLM token usage</h2>
+          <span className="text-xs text-muted-foreground">
+            From this user&apos;s own memory schema
+          </span>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-4">
+            {[
+              ["Calls", usage?.total.calls],
+              ["Input tokens", usage?.total.input_tokens],
+              ["Output tokens", usage?.total.output_tokens],
+              ["Total tokens", usage?.total.total_tokens],
+            ].map(([k, v]) => (
+              <div key={k as string} className="rounded-lg border p-3">
+                <div className="text-xs text-muted-foreground">{k}</div>
+                <div className="text-xl font-semibold">
+                  {loading ? "…" : fmt((v as number) ?? 0)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Last 30 days: {fmt(usage?.last_30d.total_tokens ?? 0)} tokens over{" "}
+            {fmt(usage?.last_30d.calls ?? 0)} calls.
+          </p>
+          {usage && usage.by_model.length > 0 && (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground">
+                  <th className="py-2">Model</th>
+                  <th className="text-right">Calls</th>
+                  <th className="text-right">Total tokens</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.by_model.map((m) => (
+                  <tr key={m.model ?? "unknown"} className="border-t">
+                    <td className="py-2">
+                      <code>{m.model ?? "—"}</code>
+                    </td>
+                    <td className="text-right">{fmt(m.calls)}</td>
+                    <td className="text-right">{fmt(m.total_tokens)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
 

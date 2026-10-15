@@ -454,6 +454,40 @@ class AuthStore:
             last = await conn.fetchval(f'SELECT max(updated_at) FROM "{schema}".banks')
         return {"banks": banks, "memories": memories, "documents": documents, "last_activity": last}
 
+    async def user_usage(self, handle: str) -> dict:
+        """Per-user LLM token usage, read from the user's own schema
+        (Hindsight records every LLM call there). OpenRouter bills one shared
+        key and cannot attribute per user, so this is the authoritative
+        per-user breakdown. Counts/tokens only, never prompt content."""
+        norm = normalize_handle(handle)
+        schema = schema_for(norm)
+        empty = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        async with self._pool.acquire() as conn:
+            exists = await conn.fetchval(
+                "SELECT 1 FROM pg_tables WHERE schemaname = $1 AND tablename = 'llm_requests'", schema
+            )
+            if not exists:
+                return {"total": empty, "last_30d": empty, "by_model": []}
+            t = f'"{schema}".llm_requests'
+            total = await conn.fetchrow(
+                f"SELECT count(*) calls, coalesce(sum(input_tokens),0) input_tokens, "
+                f"coalesce(sum(output_tokens),0) output_tokens, coalesce(sum(total_tokens),0) total_tokens FROM {t}"
+            )
+            recent = await conn.fetchrow(
+                f"SELECT count(*) calls, coalesce(sum(input_tokens),0) input_tokens, "
+                f"coalesce(sum(output_tokens),0) output_tokens, coalesce(sum(total_tokens),0) total_tokens "
+                f"FROM {t} WHERE started_at >= now() - interval '30 days'"
+            )
+            by_model = await conn.fetch(
+                f"SELECT model, count(*) calls, coalesce(sum(total_tokens),0) total_tokens FROM {t} "
+                f"GROUP BY model ORDER BY total_tokens DESC NULLS LAST LIMIT 10"
+            )
+        return {
+            "total": dict(total),
+            "last_30d": dict(recent),
+            "by_model": [dict(r) for r in by_model],
+        }
+
     async def list_audit(self, limit: int = 100) -> list[dict]:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
