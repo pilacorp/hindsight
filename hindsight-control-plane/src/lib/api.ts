@@ -26,7 +26,9 @@ export async function authedFetch(path: string, options?: RequestInit): Promise<
     }
   })();
   const send = async () => {
-    const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
+    const token = supabase
+      ? (await supabase.auth.getSession()).data.session?.access_token
+      : undefined;
     const headers = new Headers(options?.headers);
     if (token) headers.set("Authorization", `Bearer ${token}`);
     return fetch(withBasePath(path), { ...options, headers });
