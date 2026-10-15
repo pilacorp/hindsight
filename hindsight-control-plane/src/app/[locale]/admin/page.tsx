@@ -181,15 +181,14 @@ export default function AdminUsersPage() {
               ) : (
                 shown.map((u) => (
                   <tr key={u.handle} className="border-t">
-                    <td className="py-2">
-                      <a className="underline" href={withBasePath(`/admin/users/${u.handle}`)}>
-                        {u.handle}
-                      </a>
-                    </td>
+                    <td className="py-2 font-medium">{u.handle}</td>
                     <td>{u.display_name}</td>
                     <td>{u.status}</td>
                     <td>{u.active_keys}</td>
                     <td className="space-x-2 text-right">
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={withBasePath(`/admin/users/${u.handle}`)}>View / edit</a>
+                      </Button>
                       {u.status === "active" ? (
                         <Button
                           size="sm"
