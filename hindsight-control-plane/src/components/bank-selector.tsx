@@ -847,26 +847,24 @@ function BankSelectorInner() {
 
         <LanguageSwitcher />
 
-        {features?.access_key_auth && (
-          <>
-            <div className="h-8 w-px bg-border" />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              title="Logout"
-              onClick={async () => {
-                try {
-                  await fetch(withBasePath("/api/auth/logout"), { method: "POST" });
-                } finally {
-                  window.location.href = withBasePath("/login");
-                }
-              }}
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </>
-        )}
+        {/* NDA fork: every user reaches the memory area via a session, so
+            logout is always available (upstream gated this on access_key_auth). */}
+        <div className="h-8 w-px bg-border" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          title="Logout"
+          onClick={async () => {
+            try {
+              await fetch(withBasePath("/api/auth/logout"), { method: "POST" });
+            } finally {
+              window.location.href = withBasePath("/login");
+            }
+          }}
+        >
+          <LogOut className="h-5 w-5" />
+        </Button>
 
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogContent className="sm:max-w-[550px]">
