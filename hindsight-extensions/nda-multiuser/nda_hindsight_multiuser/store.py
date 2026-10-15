@@ -437,6 +437,23 @@ class AuthStore:
             json.dumps(details or {}),
         )
 
+    async def user_stats(self, handle: str) -> dict:
+        """Counts only (no memory content) for one user's schema: banks,
+        memories, documents, and last activity. Returns zeros if the schema is
+        not provisioned yet."""
+        norm = normalize_handle(handle)
+        schema = schema_for(norm)
+        async with self._pool.acquire() as conn:
+            exists = await conn.fetchval("SELECT 1 FROM pg_namespace WHERE nspname = $1", schema)
+            if not exists:
+                return {"banks": 0, "memories": 0, "documents": 0, "last_activity": None}
+            # schema is derived from a validated handle; quote it as an identifier.
+            banks = await conn.fetchval(f'SELECT count(*) FROM "{schema}".banks')
+            memories = await conn.fetchval(f'SELECT count(*) FROM "{schema}".memory_units')
+            documents = await conn.fetchval(f'SELECT count(*) FROM "{schema}".documents')
+            last = await conn.fetchval(f'SELECT max(updated_at) FROM "{schema}".banks')
+        return {"banks": banks, "memories": memories, "documents": documents, "last_activity": last}
+
     async def list_audit(self, limit: int = 100) -> list[dict]:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(

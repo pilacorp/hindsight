@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmButton, CopyButton } from "@/components/admin-controls";
+import { adminFetch } from "@/lib/admin-api";
 import { withBasePath } from "@/lib/base-path";
 
 interface UserRow {
@@ -15,62 +18,74 @@ interface UserRow {
 }
 
 export default function AdminUsersPage() {
-  const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [handle, setHandle] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [query, setQuery] = useState("");
   const [newKey, setNewKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/users", { cache: "no-store" });
-    if (res.status === 401 || res.status === 403) {
-      router.push(withBasePath("/login"));
-      return;
+    setLoading(true);
+    try {
+      const res = await adminFetch("/api/admin/users");
+      if (res.ok) setUsers((await res.json()).users ?? []);
+    } finally {
+      setLoading(false);
     }
-    const data = await res.json();
-    setUsers(data.users ?? []);
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q
+      ? users.filter((u) => u.handle.includes(q) || u.display_name.toLowerCase().includes(q))
+      : users;
+  }, [users, query]);
+
   async function createUser(issueKey: boolean) {
-    setError(null);
-    const res = await fetch("/api/admin/users", {
+    const res = await adminFetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ handle, display_name: displayName, issue_first_key: issueKey }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data.detail || data.error || "failed to create user");
+      toast.error(data.detail || data.error || "Failed to create user");
       return;
     }
+    toast.success(`User "${data.user?.handle}" created`);
     if (data.key?.secret) setNewKey(data.key.secret);
     setHandle("");
     setDisplayName("");
     await load();
   }
 
-  async function act(path: string, method = "POST") {
-    await fetch(path, { method });
-    await load();
+  async function act(path: string, ok: string) {
+    const res = await adminFetch(path, { method: "POST" });
+    if (res.ok) {
+      toast.success(ok);
+      await load();
+    } else {
+      toast.error("Action failed");
+    }
   }
 
   async function removeUser(h: string) {
-    if (
-      !confirm(
-        `Delete user "${h}"? All their keys are revoked and they are removed from the list. Their memory schema and memories are retained (a database-owner action) and are not deleted here.`
-      )
-    )
-      return;
-    await act(`/api/admin/users/${encodeURIComponent(h)}`, "DELETE");
+    const res = await adminFetch(`/api/admin/users/${encodeURIComponent(h)}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success(`User "${h}" deleted (schema and memories retained)`);
+      await load();
+    } else {
+      toast.error("Delete failed");
+    }
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6 space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Users</h1>
 
       <Card>
@@ -79,12 +94,22 @@ export default function AdminUsersPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-sm text-muted-foreground">Handle</label>
-            <Input value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="alice" />
+            <label className="block text-sm text-muted-foreground" htmlFor="handle">
+              Handle
+            </label>
+            <Input
+              id="handle"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value)}
+              placeholder="alice"
+            />
           </div>
           <div>
-            <label className="block text-sm text-muted-foreground">Display name</label>
+            <label className="block text-sm text-muted-foreground" htmlFor="display">
+              Display name
+            </label>
             <Input
+              id="display"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Alice A."
@@ -99,13 +124,17 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
       {newKey && (
         <Card>
           <CardContent className="space-y-2 pt-4">
             <p className="text-sm font-medium">New key — shown once, copy it now:</p>
-            <code className="block break-all rounded bg-muted p-2 text-sm">{newKey}</code>
-            <Button size="sm" variant="secondary" onClick={() => setNewKey(null)}>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 break-all rounded bg-muted p-2 text-sm">
+                {newKey}
+              </code>
+              <CopyButton value={newKey} />
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setNewKey(null)}>
               Dismiss
             </Button>
           </CardContent>
@@ -113,58 +142,85 @@ export default function AdminUsersPage() {
       )}
 
       <Card>
-        <CardContent className="pt-4">
-          <table className="w-full text-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <h2 className="font-medium">All users</h2>
+          <Input
+            className="max-w-xs"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search users…"
+            aria-label="Search users"
+          />
+        </CardHeader>
+        <CardContent className="overflow-x-auto pt-0">
+          <table className="w-full min-w-[32rem] text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
                 <th className="py-2">Handle</th>
                 <th>Name</th>
                 <th>Status</th>
-                <th>Keys</th>
-                <th></th>
+                <th>Active keys</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.handle} className="border-t">
-                  <td className="py-2">
-                    <a className="underline" href={withBasePath(`/admin/users/${u.handle}`)}>
-                      {u.handle}
-                    </a>
-                  </td>
-                  <td>{u.display_name}</td>
-                  <td>{u.status}</td>
-                  <td>{u.active_keys}</td>
-                  <td className="space-x-2 text-right">
-                    {u.status === "active" ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => act(`/api/admin/users/${u.handle}/disable`)}
-                      >
-                        Disable
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => act(`/api/admin/users/${u.handle}/enable`)}
-                      >
-                        Enable
-                      </Button>
-                    )}
-                    <Button size="sm" variant="destructive" onClick={() => removeUser(u.handle)}>
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
+              {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-muted-foreground">
-                    No users yet.
+                  <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    Loading…
                   </td>
                 </tr>
+              ) : shown.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    {users.length === 0
+                      ? "No users yet. Create one above."
+                      : "No users match your search."}
+                  </td>
+                </tr>
+              ) : (
+                shown.map((u) => (
+                  <tr key={u.handle} className="border-t">
+                    <td className="py-2">
+                      <a className="underline" href={withBasePath(`/admin/users/${u.handle}`)}>
+                        {u.handle}
+                      </a>
+                    </td>
+                    <td>{u.display_name}</td>
+                    <td>{u.status}</td>
+                    <td>{u.active_keys}</td>
+                    <td className="space-x-2 text-right">
+                      {u.status === "active" ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            act(`/api/admin/users/${u.handle}/disable`, `${u.handle} disabled`)
+                          }
+                        >
+                          Disable
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            act(`/api/admin/users/${u.handle}/enable`, `${u.handle} enabled`)
+                          }
+                        >
+                          Enable
+                        </Button>
+                      )}
+                      <ConfirmButton
+                        label="Delete"
+                        title={`Delete user "${u.handle}"?`}
+                        description="All of this user's keys are revoked and the user is removed from the list. Their memory schema and memories are retained and are not deleted here (a database-owner action). The handle stays reserved."
+                        confirmLabel="Delete user"
+                        onConfirm={() => removeUser(u.handle)}
+                      />
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

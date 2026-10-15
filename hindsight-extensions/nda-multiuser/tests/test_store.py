@@ -139,3 +139,11 @@ async def test_audit_has_no_secret(store):
     blob = str(events)
     assert k.secret not in blob
     assert k.full not in blob
+
+
+async def test_user_stats_counts_only(store):
+    # A handle whose schema is not provisioned -> zeros, no error. (The shared
+    # test DB may hold other provisioned u_* schemas, so use a fresh handle.)
+    await store.create_user("statsunit", "S", actor=ACTOR)
+    s = await store.user_stats("statsunit")
+    assert s == {"banks": 0, "memories": 0, "documents": 0, "last_activity": None}
