@@ -187,7 +187,7 @@ export default function AdminUsersPage() {
                     <td>{u.active_keys}</td>
                     <td className="space-x-2 text-right">
                       <Button size="sm" variant="outline" asChild>
-                        <a href={withBasePath(`/admin/users/${u.handle}`)}>View / edit</a>
+                        <a href={withBasePath(`/admin/users/${u.handle}`)}>Edit</a>
                       </Button>
                       {u.status === "active" ? (
                         <Button
