@@ -270,7 +270,9 @@ describe("ControlPlaneClient direct fetch error formatting", () => {
     await client.exportDocuments("bank-a", undefined, false, true);
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      expect.stringContaining("/api/documents/transfer?bank_id=bank-a&include_knowledge_base=true")
+      expect.stringContaining("/api/documents/transfer?bank_id=bank-a&include_knowledge_base=true"),
+      // authedFetch always forwards an init with the Supabase bearer header.
+      expect.anything()
     );
   });
 

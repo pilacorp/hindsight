@@ -1,14 +1,15 @@
 /**
- * Request-scoped Hindsight API client for the NDA multi-user Control Plane.
+ * Request-scoped Hindsight API client for the Control Plane (issue #10).
  *
- * There is no fixed server-side dataplane credential. Each request builds its
- * client and headers from the current session cookie, so the dataplane sees the
- * logged-in user's (or admin's) own API key. The session is read with
- * `cookies()` from `next/headers`, which resolves per request from async
- * context, so route handlers need no extra plumbing.
+ * There is no fixed server-side dataplane credential and no session cookie. The
+ * browser signs in with Supabase and forwards that user's access token as
+ * `Authorization: Bearer <jwt>` on every /api call; these proxy routes read it
+ * off the incoming request with `headers()` from `next/headers` (resolved per
+ * request from async context) and forward it to the dataplane, where the
+ * Supabase tenant extension maps it to the user's schema.
  */
 
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import {
   HindsightClient,
   HindsightError,
@@ -17,11 +18,9 @@ import {
   sdk,
 } from "@vectorize-io/hindsight-client";
 
-import { SESSION_COOKIE, decryptSession } from "@/lib/auth/nda-session";
-
 export const DATAPLANE_URL = process.env.HINDSIGHT_CP_DATAPLANE_API_URL || "http://localhost:8888";
 
-/** Raised when a request reaches a dataplane accessor without a valid session. */
+/** Raised when a request reaches a dataplane accessor without a bearer token. */
 export class NoSessionError extends Error {
   constructor() {
     super("no authenticated session");
@@ -29,23 +28,19 @@ export class NoSessionError extends Error {
   }
 }
 
-/** The current request's API key, from the encrypted session cookie. */
-export async function getSessionApiKey(): Promise<string> {
-  const secret = process.env.HINDSIGHT_CP_SESSION_SECRET || "";
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const session = await decryptSession(token, secret);
-  if (!session) throw new NoSessionError();
-  return session.apiKey;
+/** The current request's Supabase access token, forwarded by the browser. */
+export async function getRequestToken(): Promise<string> {
+  const auth = (await headers()).get("authorization") || "";
+  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  if (!token) throw new NoSessionError();
+  return token;
 }
 
-/**
- * Auth headers for direct fetch calls to the dataplane, scoped to this request.
- * (Now async — callers add `await`.)
- */
+/** Auth headers for direct fetch calls to the dataplane, scoped to this request. */
 export async function getDataplaneHeaders(
   extra?: Record<string, string>
 ): Promise<Record<string, string>> {
-  return { ...extra, Authorization: `Bearer ${await getSessionApiKey()}` };
+  return { ...extra, Authorization: `Bearer ${await getRequestToken()}` };
 }
 
 /**
@@ -56,19 +51,19 @@ export function dataplaneBankUrl(bankId: string, suffix = ""): string {
   return `${DATAPLANE_URL}/v1/default/banks/${encodeURIComponent(bankId)}${suffix}`;
 }
 
-/** Low-level SDK client scoped to the current request. Replaces `lowLevelClient`. */
+/** Low-level SDK client scoped to the current request. */
 export async function getClient() {
   return createClient(
     createConfig({
       baseUrl: DATAPLANE_URL,
-      headers: { Authorization: `Bearer ${await getSessionApiKey()}` },
+      headers: { Authorization: `Bearer ${await getRequestToken()}` },
     })
   );
 }
 
-/** High-level client scoped to the current request. Replaces `hindsightClient`. */
+/** High-level client scoped to the current request. */
 export async function getHindsightClient() {
-  return new HindsightClient({ baseUrl: DATAPLANE_URL, apiKey: await getSessionApiKey() });
+  return new HindsightClient({ baseUrl: DATAPLANE_URL, apiKey: await getRequestToken() });
 }
 
 export { sdk, HindsightError };
