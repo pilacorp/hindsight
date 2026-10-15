@@ -11,9 +11,9 @@ const { listDocuments, getDocument, deleteDocument } = vi.hoisted(() => ({
 
 vi.mock("@/lib/hindsight-client", () => ({
   sdk: { listDocuments, getDocument, deleteDocument },
-  lowLevelClient: {},
+  getClient: async () => ({}),
   dataplaneBankUrl: (bankId: string, suffix: string) => `http://dataplane/${bankId}${suffix}`,
-  getDataplaneHeaders: () => ({}),
+  getDataplaneHeaders: async () => ({}),
 }));
 
 vi.mock("@/lib/sdk-response", () => ({

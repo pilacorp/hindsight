@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bank
 
     const response = await fetch(dataplaneBankUrl(bankId, "/aliases"), {
       method: "GET",
-      headers: getDataplaneHeaders(),
+      headers: await getDataplaneHeaders(),
     });
 
     if (!response.ok) {
@@ -65,7 +65,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ban
 
     const response = await fetch(dataplaneBankUrl(bankId, "/aliases"), {
       method: "POST",
-      headers: getDataplaneHeaders({ "Content-Type": "application/json" }),
+      headers: await getDataplaneHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     });
 

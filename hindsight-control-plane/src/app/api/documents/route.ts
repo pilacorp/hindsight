@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { localizeApiErrorPayload, missingQueryParam } from "@/lib/i18n/api-errors";
-import { sdk, lowLevelClient, dataplaneBankUrl, getDataplaneHeaders } from "@/lib/hindsight-client";
+import { sdk, getClient, dataplaneBankUrl, getDataplaneHeaders } from "@/lib/hindsight-client";
 import { respondWithSdk } from "@/lib/sdk-response";
 
 // Tag matching modes accepted by the dataplane's list_documents endpoint.
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const documentId = searchParams.get("document_id");
   if (documentId) {
     const response = await sdk.getDocument({
-      client: lowLevelClient,
+      client: await getClient(),
       path: { bank_id: bankId, document_id: documentId },
     });
     return respondWithSdk(response, "Failed to fetch document", { request });
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get("end_date") || undefined;
 
   const response = await sdk.listDocuments({
-    client: lowLevelClient,
+    client: await getClient(),
     path: { bank_id: bankId },
     query: {
       q,
@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest) {
       dataplaneBankUrl(bankId, `/documents/${encodeURIComponent(documentId)}`),
       {
         method: "PATCH",
-        headers: getDataplaneHeaders({ "Content-Type": "application/json" }),
+        headers: await getDataplaneHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
       }
     );
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest) {
   if (!documentId) return missingQueryParam(request, "document_id");
 
   const response = await sdk.deleteDocument({
-    client: lowLevelClient,
+    client: await getClient(),
     path: { bank_id: bankId, document_id: documentId },
   });
   return respondWithSdk(response, "Failed to delete document", { request });

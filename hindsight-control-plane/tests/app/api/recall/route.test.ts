@@ -7,7 +7,7 @@ const { recallMemories } = vi.hoisted(() => ({
 
 vi.mock("@/lib/hindsight-client", () => ({
   sdk: { recallMemories },
-  lowLevelClient: {},
+  getClient: async () => ({}),
 }));
 
 import { POST } from "@/app/api/recall/route";

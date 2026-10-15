@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${DATAPLANE_URL}${path}`, { headers: getDataplaneHeaders() });
+    const response = await fetch(`${DATAPLANE_URL}${path}`, {
+      headers: await getDataplaneHeaders(),
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: response.statusText }));
       return NextResponse.json(error, { status: response.status });

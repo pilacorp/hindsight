@@ -37,7 +37,7 @@ export async function POST(
 
     const response = await fetch(dataplaneBankUrl(bankId, `/clone?${qs.toString()}`), {
       method: "POST",
-      headers: getDataplaneHeaders(),
+      headers: await getDataplaneHeaders(),
     });
 
     const data = await response.json().catch(() => ({ detail: response.statusText }));

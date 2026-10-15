@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ban
       `${DATAPLANE_URL}/v1/default/banks/${bankId}/consolidation-strategies/preview`,
       {
         method: "POST",
-        headers: getDataplaneHeaders({ "Content-Type": "application/json" }),
+        headers: await getDataplaneHeaders({ "Content-Type": "application/json" }),
         body,
       }
     );

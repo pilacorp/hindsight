@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const response = await fetch(
       dataplaneBankUrl(bankId, `/knowledge-base/tree?${tagFilterParams(request)}`),
       {
-        headers: getDataplaneHeaders(),
+        headers: await getDataplaneHeaders(),
       }
     );
     if (!response.ok) {

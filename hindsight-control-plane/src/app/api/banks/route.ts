@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { localizeApiErrorPayload } from "@/lib/i18n/api-errors";
-import { sdk, lowLevelClient } from "@/lib/hindsight-client";
+import { sdk, getClient } from "@/lib/hindsight-client";
 import { respondWithSdk } from "@/lib/sdk-response";
 
 const HTTP_CREATED = 201;
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const limit = searchParams.get("limit");
   const offset = searchParams.get("offset");
   const response = await sdk.listBanks({
-    client: lowLevelClient,
+    client: await getClient(),
     query: {
       ...(q ? { q } : {}),
       ...(limit !== null ? { limit: Number(limit) } : {}),
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   const response = await sdk.createOrUpdateBank({
-    client: lowLevelClient,
+    client: await getClient(),
     path: { bank_id },
     body: {},
   });

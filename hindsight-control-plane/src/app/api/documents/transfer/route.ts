@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const submitSuffix = `/transfer/export${qs.toString() ? `?${qs.toString()}` : ""}`;
     const submitResponse = await fetch(dataplaneBankUrl(bankId, submitSuffix), {
       method: "POST",
-      headers: getDataplaneHeaders(),
+      headers: await getDataplaneHeaders(),
     });
     if (!submitResponse.ok) {
       const error = await submitResponse
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     let downloadUrl: string | undefined;
     for (;;) {
       const statusResponse = await fetch(dataplaneBankUrl(bankId, `/operations/${operationId}`), {
-        headers: getDataplaneHeaders(),
+        headers: await getDataplaneHeaders(),
       });
       if (!statusResponse.ok) {
         const error = await statusResponse
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
 
     // 3. Download the finished archive and stream it back to the browser.
     const response = await fetch(`${DATAPLANE_URL}${downloadUrl}`, {
-      headers: getDataplaneHeaders(),
+      headers: await getDataplaneHeaders(),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: response.statusText }));
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     const suffix = `/transfer/import?mode=merge&document_conflict=${encodeURIComponent(onConflict)}`;
     const response = await fetch(dataplaneBankUrl(bankId, suffix), {
       method: "POST",
-      headers: getDataplaneHeaders(),
+      headers: await getDataplaneHeaders(),
       body: outForm,
     });
     if (!response.ok) {

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       dataplaneBankUrl(bankId, `/documents/${encodeURIComponent(documentId)}/reprocess`),
       {
         method: "POST",
-        headers: getDataplaneHeaders({ "Content-Type": "application/json" }),
+        headers: await getDataplaneHeaders({ "Content-Type": "application/json" }),
       }
     );
 

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/hindsight-client", () => ({
   dataplaneBankUrl: (bankId: string, suffix: string) =>
     `http://dataplane/v1/default/banks/${encodeURIComponent(bankId)}${suffix}`,
-  getDataplaneHeaders: () => ({}),
+  getDataplaneHeaders: async () => ({}),
 }));
 
 import { GET } from "@/app/api/documents/chunks/route";
