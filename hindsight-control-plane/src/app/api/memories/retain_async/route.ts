@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const { items } = body;
 
   const response = await sdk.retainMemories({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     body: { items, async: true },
   });

@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bank
 
     // Note: tags filtering is not supported by the list_memories API endpoint
     const response = await sdk.listMemories({
-      client: (await getClient()),
+      client: await getClient(),
       path: { bank_id: bankId },
       query: {
         type: "observation",
@@ -82,7 +82,7 @@ export async function DELETE(
     }
 
     const response = await sdk.clearObservations({
-      client: (await getClient()),
+      client: await getClient(),
       path: { bank_id: bankId },
     });
 

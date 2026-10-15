@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const documentId = searchParams.get("document_id");
   if (documentId) {
     const response = await sdk.getDocument({
-      client: (await getClient()),
+      client: await getClient(),
       path: { bank_id: bankId, document_id: documentId },
     });
     return respondWithSdk(response, "Failed to fetch document", { request });
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get("end_date") || undefined;
 
   const response = await sdk.listDocuments({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     query: {
       q,
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest) {
   if (!documentId) return missingQueryParam(request, "document_id");
 
   const response = await sdk.deleteDocument({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId, document_id: documentId },
   });
   return respondWithSdk(response, "Failed to delete document", { request });

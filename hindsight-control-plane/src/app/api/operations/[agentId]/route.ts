@@ -16,7 +16,7 @@ export async function GET(
   const excludeParents = searchParams.get("exclude_parents") === "true" ? true : undefined;
 
   const response = await sdk.listOperations({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: agentId },
     query: { status, type, limit, offset, exclude_parents: excludeParents },
   });
@@ -42,7 +42,7 @@ export async function DELETE(
   }
 
   const response = await sdk.cancelOperation({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: agentId, operation_id: operationId },
   });
   return respondWithSdk(response, "Failed to cancel operation", { request });

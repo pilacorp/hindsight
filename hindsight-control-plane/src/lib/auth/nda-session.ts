@@ -25,7 +25,10 @@ const IV_BYTES = 12;
 
 async function deriveKey(secret: string): Promise<CryptoKey> {
   const material = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
-  return crypto.subtle.importKey("raw", material, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  return crypto.subtle.importKey("raw", material, { name: "AES-GCM" }, false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 export async function encryptSession(
@@ -37,14 +40,19 @@ export async function encryptSession(
   const key = await deriveKey(secret);
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext)
+  );
   const out = new Uint8Array(iv.length + ciphertext.length);
   out.set(iv, 0);
   out.set(ciphertext, iv.length);
   return base64UrlEncode(out);
 }
 
-export async function decryptSession(token: string | undefined, secret: string): Promise<SessionData | null> {
+export async function decryptSession(
+  token: string | undefined,
+  secret: string
+): Promise<SessionData | null> {
   if (!token || !secret) return null;
   try {
     const raw = base64UrlDecode(token);
@@ -66,7 +74,13 @@ export async function decryptSession(token: string | undefined, secret: string):
 }
 
 export function sessionCookieOptions(secure: boolean) {
-  return { httpOnly: true, secure, sameSite: "strict" as const, path: "/", maxAge: SESSION_MAX_AGE_SECONDS };
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: "strict" as const,
+    path: "/",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  };
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {

@@ -33,7 +33,7 @@ export async function GET(
   const includePayload = url.searchParams.get("include_payload") === "true";
 
   const response = await sdk.getOperationStatus({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId, operation_id: operationId },
     query: includePayload ? { include_payload: true } : undefined,
   });
@@ -126,7 +126,7 @@ export async function DELETE(
     }
 
     const response = await sdk.deleteOperation({
-      client: (await getClient()),
+      client: await getClient(),
       path: { bank_id: bankId, operation_id: operationId },
     });
     return respondWithSdk(response, "Failed to delete operation", { request });

@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { bankId } = await params;
   const response = await sdk.getBankConfig({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
   });
   return respondWithSdk(response, "Failed to fetch bank config", { request });
@@ -35,7 +35,7 @@ export async function PATCH(
   const { updates } = body;
 
   const response = await sdk.updateBankConfig({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     body: { updates },
   });
@@ -48,7 +48,7 @@ export async function DELETE(
 ) {
   const { bankId } = await params;
   const response = await sdk.resetBankConfig({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
   });
   return respondWithSdk(response, "Failed to reset bank config", { request });

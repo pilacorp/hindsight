@@ -26,7 +26,7 @@ export async function GET(
   const decodedEntityId = decodeURIComponent(entityId);
 
   const response = await sdk.getEntity({
-    client: (await getClient()),
+    client: await getClient(),
     path: {
       bank_id: bankId,
       entity_id: decodedEntityId,

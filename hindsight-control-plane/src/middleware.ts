@@ -60,14 +60,20 @@ export async function middleware(request: NextRequest) {
 
 function unauthorized(request: NextRequest) {
   return NextResponse.json(
-    localizeApiErrorPayload(request, { error: "Unauthorized", errorKey: "api.errors.auth.unauthorized" }),
+    localizeApiErrorPayload(request, {
+      error: "Unauthorized",
+      errorKey: "api.errors.auth.unauthorized",
+    }),
     { status: 401 }
   );
 }
 
 function forbidden(request: NextRequest) {
   return NextResponse.json(
-    localizeApiErrorPayload(request, { error: "Forbidden", errorKey: "api.errors.auth.unauthorized" }),
+    localizeApiErrorPayload(request, {
+      error: "Forbidden",
+      errorKey: "api.errors.auth.unauthorized",
+    }),
     { status: 403 }
   );
 }

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const response = await sdk.recallMemories({
-      client: (await getClient()),
+      client: await getClient(),
       path: { bank_id: bankId },
       body: {
         query,

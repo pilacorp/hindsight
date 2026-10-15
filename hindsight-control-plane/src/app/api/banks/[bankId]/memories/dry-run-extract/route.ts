@@ -14,7 +14,7 @@ export async function POST(
   const { bankId } = await params;
   const body = await request.json();
   const response = await sdk.dryRunExtractMemories({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     body,
   });

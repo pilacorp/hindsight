@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     : undefined;
 
   const response = await sdk.getEntityGraph({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     query: { limit, min_count: minCount, ...readTagFilter(searchParams) },
   });

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : undefined;
 
   const response = await sdk.listEntities({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     query: { limit, offset, ...readTagFilter(searchParams) },
   });

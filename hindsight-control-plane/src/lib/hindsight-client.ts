@@ -42,7 +42,9 @@ export async function getSessionApiKey(): Promise<string> {
  * Auth headers for direct fetch calls to the dataplane, scoped to this request.
  * (Now async — callers add `await`.)
  */
-export async function getDataplaneHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+export async function getDataplaneHeaders(
+  extra?: Record<string, string>
+): Promise<Record<string, string>> {
   return { ...extra, Authorization: `Bearer ${await getSessionApiKey()}` };
 }
 

@@ -13,10 +13,16 @@ const BASE = `${DATAPLANE_URL}/ext/nda/v1`;
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
-export async function proxyAdmin(method: Method, path: string, body?: unknown): Promise<NextResponse> {
+export async function proxyAdmin(
+  method: Method,
+  path: string,
+  body?: unknown
+): Promise<NextResponse> {
   let headers: Record<string, string>;
   try {
-    headers = await getDataplaneHeaders(body !== undefined ? { "Content-Type": "application/json" } : undefined);
+    headers = await getDataplaneHeaders(
+      body !== undefined ? { "Content-Type": "application/json" } : undefined
+    );
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

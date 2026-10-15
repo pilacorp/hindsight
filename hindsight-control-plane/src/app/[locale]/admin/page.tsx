@@ -60,7 +60,11 @@ export default function AdminUsersPage() {
   }
 
   async function removeUser(h: string) {
-    if (!confirm(`Delete user "${h}"? All their keys are revoked and they are removed from the list. Their memory schema and memories are retained (a database-owner action) and are not deleted here.`))
+    if (
+      !confirm(
+        `Delete user "${h}"? All their keys are revoked and they are removed from the list. Their memory schema and memories are retained (a database-owner action) and are not deleted here.`
+      )
+    )
       return;
     await act(`/api/admin/users/${encodeURIComponent(h)}`, "DELETE");
   }
@@ -70,7 +74,9 @@ export default function AdminUsersPage() {
       <h1 className="text-2xl font-semibold">Users</h1>
 
       <Card>
-        <CardHeader><h2 className="font-medium">Create user</h2></CardHeader>
+        <CardHeader>
+          <h2 className="font-medium">Create user</h2>
+        </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-sm text-muted-foreground">Handle</label>
@@ -78,10 +84,18 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <label className="block text-sm text-muted-foreground">Display name</label>
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Alice A." />
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Alice A."
+            />
           </div>
-          <Button onClick={() => createUser(false)} disabled={!handle}>Create</Button>
-          <Button variant="secondary" onClick={() => createUser(true)} disabled={!handle}>Create + issue key</Button>
+          <Button onClick={() => createUser(false)} disabled={!handle}>
+            Create
+          </Button>
+          <Button variant="secondary" onClick={() => createUser(true)} disabled={!handle}>
+            Create + issue key
+          </Button>
         </CardContent>
       </Card>
 
@@ -91,7 +105,9 @@ export default function AdminUsersPage() {
           <CardContent className="space-y-2 pt-4">
             <p className="text-sm font-medium">New key — shown once, copy it now:</p>
             <code className="block break-all rounded bg-muted p-2 text-sm">{newKey}</code>
-            <Button size="sm" variant="secondary" onClick={() => setNewKey(null)}>Dismiss</Button>
+            <Button size="sm" variant="secondary" onClick={() => setNewKey(null)}>
+              Dismiss
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -101,30 +117,54 @@ export default function AdminUsersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th className="py-2">Handle</th><th>Name</th><th>Status</th><th>Keys</th><th></th>
+                <th className="py-2">Handle</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Keys</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
                 <tr key={u.handle} className="border-t">
                   <td className="py-2">
-                    <a className="underline" href={withBasePath(`/admin/users/${u.handle}`)}>{u.handle}</a>
+                    <a className="underline" href={withBasePath(`/admin/users/${u.handle}`)}>
+                      {u.handle}
+                    </a>
                   </td>
                   <td>{u.display_name}</td>
                   <td>{u.status}</td>
                   <td>{u.active_keys}</td>
                   <td className="space-x-2 text-right">
                     {u.status === "active" ? (
-                      <Button size="sm" variant="secondary" onClick={() => act(`/api/admin/users/${u.handle}/disable`)}>Disable</Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => act(`/api/admin/users/${u.handle}/disable`)}
+                      >
+                        Disable
+                      </Button>
                     ) : (
-                      <Button size="sm" variant="secondary" onClick={() => act(`/api/admin/users/${u.handle}/enable`)}>Enable</Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => act(`/api/admin/users/${u.handle}/enable`)}
+                      >
+                        Enable
+                      </Button>
                     )}
-                    <Button size="sm" variant="destructive" onClick={() => removeUser(u.handle)}>Delete</Button>
+                    <Button size="sm" variant="destructive" onClick={() => removeUser(u.handle)}>
+                      Delete
+                    </Button>
                   </td>
                 </tr>
               ))}
               {users.length === 0 && (
-                <tr><td colSpan={5} className="py-4 text-center text-muted-foreground">No users yet.</td></tr>
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                    No users yet.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

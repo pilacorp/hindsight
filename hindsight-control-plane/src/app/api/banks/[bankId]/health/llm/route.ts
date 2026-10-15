@@ -8,7 +8,7 @@ export async function POST(
 ) {
   const { bankId } = await params;
   const response = await sdk.testBankLlm({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
   });
   return respondWithSdk(response, "Failed to test bank LLM connectivity", { request });

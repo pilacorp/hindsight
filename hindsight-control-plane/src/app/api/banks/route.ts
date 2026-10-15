@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const limit = searchParams.get("limit");
   const offset = searchParams.get("offset");
   const response = await sdk.listBanks({
-    client: (await getClient()),
+    client: await getClient(),
     query: {
       ...(q ? { q } : {}),
       ...(limit !== null ? { limit: Number(limit) } : {}),
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   const response = await sdk.createOrUpdateBank({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id },
     body: {},
   });

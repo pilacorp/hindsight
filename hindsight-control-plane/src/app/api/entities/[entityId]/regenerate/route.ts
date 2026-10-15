@@ -24,7 +24,7 @@ export async function POST(
   const decodedEntityId = decodeURIComponent(entityId);
 
   const response = await sdk.regenerateEntityObservations({
-    client: (await getClient()),
+    client: await getClient(),
     path: {
       bank_id: bankId,
       entity_id: decodedEntityId,

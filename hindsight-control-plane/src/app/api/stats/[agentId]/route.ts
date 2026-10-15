@@ -8,7 +8,7 @@ export async function GET(
 ) {
   const { agentId } = await params;
   const response = await sdk.getAgentStats({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: agentId },
   });
   return respondWithSdk(response, "Failed to fetch stats", { request });

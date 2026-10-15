@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
   const key = body.key?.trim();
   if (!key) {
     return NextResponse.json(
-      localizeApiErrorPayload(request, { error: "Missing key", errorKey: "api.errors.auth.invalidAccessKey" }),
+      localizeApiErrorPayload(request, {
+        error: "Missing key",
+        errorKey: "api.errors.auth.invalidAccessKey",
+      }),
       { status: 400 }
     );
   }
@@ -51,12 +54,19 @@ export async function POST(request: NextRequest) {
   const classified = await classify(key);
   if (!classified) {
     return NextResponse.json(
-      localizeApiErrorPayload(request, { error: "Invalid key", errorKey: "api.errors.auth.invalidAccessKey" }),
+      localizeApiErrorPayload(request, {
+        error: "Invalid key",
+        errorKey: "api.errors.auth.invalidAccessKey",
+      }),
       { status: 401 }
     );
   }
 
-  const session: Omit<SessionData, "iat"> = { kind: classified.kind, handle: classified.handle, apiKey: key };
+  const session: Omit<SessionData, "iat"> = {
+    kind: classified.kind,
+    handle: classified.handle,
+    apiKey: key,
+  };
   const response = NextResponse.json({ kind: classified.kind, handle: classified.handle });
   response.cookies.set({
     name: SESSION_COOKIE,
@@ -66,14 +76,18 @@ export async function POST(request: NextRequest) {
   return response;
 }
 
-async function classify(key: string): Promise<{ kind: "user" | "admin"; handle: string | null } | null> {
+async function classify(
+  key: string
+): Promise<{ kind: "user" | "admin"; handle: string | null } | null> {
   const headers = { Authorization: `Bearer ${key}` };
   const me = await fetch(`${DATAPLANE_URL}/ext/nda/v1/me`, { headers }).catch(() => null);
   if (me && me.ok) {
     const data = (await me.json().catch(() => ({}))) as { handle?: string };
     return { kind: "user", handle: data.handle ?? null };
   }
-  const admin = await fetch(`${DATAPLANE_URL}/ext/nda/v1/admin/whoami`, { headers }).catch(() => null);
+  const admin = await fetch(`${DATAPLANE_URL}/ext/nda/v1/admin/whoami`, { headers }).catch(
+    () => null
+  );
   if (admin && admin.ok) {
     return { kind: "admin", handle: null };
   }

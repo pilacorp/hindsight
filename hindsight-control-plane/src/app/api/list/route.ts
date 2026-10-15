@@ -54,7 +54,9 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("end_date") || undefined;
     const tagFilter = readTagFilter(searchParams);
 
-    const response = await (await getHindsightClient()).listMemories(bankId, {
+    const response = await (
+      await getHindsightClient()
+    ).listMemories(bankId, {
       limit,
       offset,
       type,

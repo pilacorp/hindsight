@@ -13,7 +13,10 @@ export async function GET() {
   try {
     const res = await fetch(`${DATAPLANE_URL}/version`, { cache: "no-store" });
     const data = (res.ok ? await res.json().catch(() => ({})) : {}) as Record<string, unknown>;
-    const features = { ...((data.features as Record<string, boolean>) ?? {}), per_user_auth: perUserAuth };
+    const features = {
+      ...((data.features as Record<string, boolean>) ?? {}),
+      per_user_auth: perUserAuth,
+    };
     return NextResponse.json({ ...data, features }, { status: 200 });
   } catch {
     return NextResponse.json({ features: { per_user_auth: perUserAuth } }, { status: 200 });

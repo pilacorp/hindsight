@@ -36,7 +36,9 @@ export async function GET(
     }
 
     const path = `/v1/default/banks/${encodeURIComponent(bankId)}/attachments/${attachmentId}`;
-    const response = await fetch(`${DATAPLANE_URL}${path}`, { headers: await getDataplaneHeaders() });
+    const response = await fetch(`${DATAPLANE_URL}${path}`, {
+      headers: await getDataplaneHeaders(),
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: response.statusText }));
       return NextResponse.json(error, { status: response.status });

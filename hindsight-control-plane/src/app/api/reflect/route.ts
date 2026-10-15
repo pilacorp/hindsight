@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = await sdk.reflect({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     body: requestBody,
   });

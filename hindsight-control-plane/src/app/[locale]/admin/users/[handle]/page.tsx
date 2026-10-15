@@ -24,15 +24,22 @@ export default function UserDetailPage({ params }: { params: Promise<{ handle: s
   const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(handle)}`, { cache: "no-store" });
-    if (res.status === 404) { setNotFound(true); return; }
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(handle)}`, {
+      cache: "no-store",
+    });
+    if (res.status === 404) {
+      setNotFound(true);
+      return;
+    }
     const data = await res.json();
     setDisplayName(data.user?.display_name ?? "");
     setStatus(data.user?.status ?? "");
     setKeys(data.keys ?? []);
   }, [handle]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function saveName() {
     await fetch(`/api/admin/users/${encodeURIComponent(handle)}`, {
@@ -71,27 +78,39 @@ export default function UserDetailPage({ params }: { params: Promise<{ handle: s
 
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">{handle} <span className="text-sm text-muted-foreground">({status})</span></h1>
+      <h1 className="text-2xl font-semibold">
+        {handle} <span className="text-sm text-muted-foreground">({status})</span>
+      </h1>
 
       <Card>
-        <CardHeader><h2 className="font-medium">Details</h2></CardHeader>
+        <CardHeader>
+          <h2 className="font-medium">Details</h2>
+        </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-sm text-muted-foreground">Display name</label>
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
           <Button onClick={saveName}>Save</Button>
-          <Button variant="secondary" onClick={toggle}>{status === "active" ? "Disable" : "Enable"}</Button>
+          <Button variant="secondary" onClick={toggle}>
+            {status === "active" ? "Disable" : "Enable"}
+          </Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><h2 className="font-medium">API keys</h2></CardHeader>
+        <CardHeader>
+          <h2 className="font-medium">API keys</h2>
+        </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-end gap-3">
             <div>
               <label className="block text-sm text-muted-foreground">Label</label>
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="laptop" />
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="laptop"
+              />
             </div>
             <Button onClick={generateKey}>Generate key</Button>
           </div>
@@ -99,32 +118,47 @@ export default function UserDetailPage({ params }: { params: Promise<{ handle: s
             <div className="space-y-2">
               <p className="text-sm font-medium">New key — shown once, copy it now:</p>
               <code className="block break-all rounded bg-muted p-2 text-sm">{newKey}</code>
-              <Button size="sm" variant="secondary" onClick={() => setNewKey(null)}>Dismiss</Button>
+              <Button size="sm" variant="secondary" onClick={() => setNewKey(null)}>
+                Dismiss
+              </Button>
             </div>
           )}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th className="py-2">Label</th><th>Prefix</th><th>Status</th><th>Created</th><th>Last used</th><th></th>
+                <th className="py-2">Label</th>
+                <th>Prefix</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Last used</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {keys.map((k) => (
                 <tr key={k.id} className="border-t">
                   <td className="py-2">{k.label || "—"}</td>
-                  <td><code>{k.prefix}</code></td>
+                  <td>
+                    <code>{k.prefix}</code>
+                  </td>
                   <td>{k.status}</td>
                   <td>{k.created_at?.slice(0, 10) ?? "—"}</td>
                   <td>{k.last_used_at?.slice(0, 10) ?? "—"}</td>
                   <td className="text-right">
                     {k.status === "active" && (
-                      <Button size="sm" variant="destructive" onClick={() => revoke(k.id)}>Revoke</Button>
+                      <Button size="sm" variant="destructive" onClick={() => revoke(k.id)}>
+                        Revoke
+                      </Button>
                     )}
                   </td>
                 </tr>
               ))}
               {keys.length === 0 && (
-                <tr><td colSpan={6} className="py-4 text-center text-muted-foreground">No keys.</td></tr>
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                    No keys.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

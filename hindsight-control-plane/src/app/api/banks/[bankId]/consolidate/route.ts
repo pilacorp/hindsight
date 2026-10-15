@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ban
   }
 
   const response = await sdk.triggerConsolidation({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
   });
   return respondWithSdk(response, "Failed to trigger consolidation", { request });

@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ bank
   }
 
   const response = await sdk.createOrUpdateBank({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     body: {
       name: body.name,
@@ -66,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ba
   }
 
   const response = await sdk.updateBank({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
     body: {
       name: body.name,
@@ -94,7 +94,7 @@ export async function DELETE(
   }
 
   const response = await sdk.deleteBank({
-    client: (await getClient()),
+    client: await getClient(),
     path: { bank_id: bankId },
   });
   return respondWithSdk(response, "Failed to delete bank", { request });

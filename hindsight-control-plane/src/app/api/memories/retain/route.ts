@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
         }))
       : items;
 
-    const response = await (await getHindsightClient()).retainBatch(bankId, mappedItems, {
+    const response = await (
+      await getHindsightClient()
+    ).retainBatch(bankId, mappedItems, {
       documentId: document_id,
       documentTags: document_tags,
     });

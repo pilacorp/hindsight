@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   if (!chunkId) return missingQueryParam(request, "chunk_id");
 
   const response = await sdk.getChunk({
-    client: (await getClient()),
+    client: await getClient(),
     path: { chunk_id: chunkId },
   });
   return respondWithSdk(response, "Failed to fetch chunk", { request });
