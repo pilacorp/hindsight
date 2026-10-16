@@ -1,0 +1,9 @@
+{
+  "_comment": "Point a coding agent's MCP client at the OAuth gateway, not the API. The client does OAuth (opens a browser, sign in with Supabase) on first use — no token to paste. <bank> is any id; it auto-creates on first retain. Claude Code/Cursor use this .mcp.json shape; Codex uses config.toml (see below).",
+  "mcpServers": {
+    "hindsight": {
+      "type": "http",
+      "url": "http://localhost:8020/mcp/personal/"
+    }
+  }
+}
