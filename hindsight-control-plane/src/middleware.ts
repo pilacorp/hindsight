@@ -1,95 +1,32 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { localizeApiErrorPayload } from "@/lib/i18n/api-errors";
 import createIntlMiddleware from "next-intl/middleware";
-import { SESSION_COOKIE, decryptSession, type SessionData } from "@/lib/auth/nda-session";
-import { stripBasePath, withBasePath } from "@/lib/base-path";
 import { routing } from "@/i18n/routing";
+import { stripBasePath } from "@/lib/base-path";
 
-// Reachable without a session.
-const PUBLIC_PATTERNS = [
-  "/login",
-  "/api/auth/",
-  "/api/health",
-  "/api/version",
-  "/logo.png",
-  "/favicon",
-  "/_next",
-  "/fonts",
-  "/static",
-];
-
-// Admin-only prefixes; a user session is rejected here, a user never sees admin.
-const ADMIN_PATTERNS = ["/admin", "/api/admin"];
-
+// Issue #10: the Supabase session lives in the browser (supabase-js); the
+// browser forwards its access token as `Authorization: Bearer <jwt>` on every
+// /api call. The proxy routes derive the dataplane token from that header and
+// would otherwise throw NoSessionError (→ 500) when it is absent, so gate here:
+// an /api request without a bearer gets a clean 401, which the client turns into
+// a sign-in redirect. Page routes are not gated (auth is enforced client-side).
 const intlMiddleware = createIntlMiddleware(routing);
 
-function isAdminPath(path: string): boolean {
-  return ADMIN_PATTERNS.some((p) => path === p || path.startsWith(p + "/"));
-}
+// /api routes reachable without a token.
+const PUBLIC_API = ["/api/version", "/api/health"];
 
-export async function middleware(request: NextRequest) {
-  const secret = process.env.HINDSIGHT_CP_SESSION_SECRET || "";
-  const { pathname } = request.nextUrl;
-  const appPathname = stripBasePath(pathname);
+export function middleware(request: NextRequest) {
+  const appPath = stripBasePath(request.nextUrl.pathname);
 
-  const session: SessionData | null = secret
-    ? await decryptSession(request.cookies.get(SESSION_COOKIE)?.value, secret)
-    : null;
-  const isPublic = PUBLIC_PATTERNS.some((pattern) => appPathname.startsWith(pattern));
-
-  // API routes: enforce auth directly (no i18n).
-  if (appPathname.startsWith("/api/")) {
-    if (isPublic) return NextResponse.next();
-    if (!session) return unauthorized(request);
-    if (isAdminPath(appPathname) && session.kind !== "admin") return forbidden(request);
-    if (!isAdminPath(appPathname) && session.kind === "admin") return forbidden(request);
-    return NextResponse.next();
-  }
-
-  // Page routes: enforce auth, then hand off to i18n.
-  if (!isPublic) {
-    if (!session) return redirectToLogin(request, appPathname);
-    // An admin may only see admin pages; a user may not see admin pages.
-    if (isAdminPath(appPathname) && session.kind !== "admin") return redirectHome(request);
-    if (!isAdminPath(appPathname) && session.kind === "admin") return redirectAdmin(request);
+  if (appPath.startsWith("/api/")) {
+    const isPublic = PUBLIC_API.some((p) => appPath === p || appPath.startsWith(p + "/"));
+    if (!isPublic && !request.headers.get("authorization")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return;
   }
 
   return intlMiddleware(request);
-}
-
-function unauthorized(request: NextRequest) {
-  return NextResponse.json(
-    localizeApiErrorPayload(request, {
-      error: "Unauthorized",
-      errorKey: "api.errors.auth.unauthorized",
-    }),
-    { status: 401 }
-  );
-}
-
-function forbidden(request: NextRequest) {
-  return NextResponse.json(
-    localizeApiErrorPayload(request, {
-      error: "Forbidden",
-      errorKey: "api.errors.auth.unauthorized",
-    }),
-    { status: 403 }
-  );
-}
-
-function redirectToLogin(request: NextRequest, appPathname: string) {
-  const loginUrl = new URL(withBasePath("/login"), request.url);
-  loginUrl.searchParams.set("returnTo", appPathname);
-  return NextResponse.redirect(loginUrl);
-}
-
-function redirectHome(request: NextRequest) {
-  return NextResponse.redirect(new URL(withBasePath("/"), request.url));
-}
-
-function redirectAdmin(request: NextRequest) {
-  return NextResponse.redirect(new URL(withBasePath("/admin"), request.url));
 }
 
 export const config = {

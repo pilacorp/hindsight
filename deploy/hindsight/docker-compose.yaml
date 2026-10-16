@@ -1,26 +1,38 @@
-# Local full-stack multi-user Hindsight (API + Control Plane) for testing.
+# Local full-stack Hindsight (API + Control Plane) for testing issue #10:
+# tenancy via the upstream Supabase tenant extension, identity from a
+# self-hosted open-source Supabase (Auth + Postgres). Supabase Cloud is not a
+# target. There is NO database service here — HINDSIGHT_API_DATABASE_URL points
+# at the Supabase stack's own Postgres (it provides `vector`).
 #
-# Uses the custom images built from the pilacorp/hindsight fork:
-#   hindsight-api-nda:dev        (tenant + HTTP extensions)
-#   hindsight-cp-nda:dev         (forked Control Plane, per-user login)
+# Images built from the pilacorp/hindsight fork:
+#   hindsight-api-supabase:dev   (base + hindsight_ext_supabase_tenant)
+#   hindsight-cp-nda:dev         (forked Control Plane, Supabase sign-in)
 #
-# Against an EXTERNAL PostgreSQL/pgvector (no database service here). Reads
-# everything from .env.multiuser. This is the local-test shape of the deployment
-# that nda-harness#3 will formalize (pinned digests, bootstrap/verify scripts).
+# The single API container runs the API and its in-process worker, so the
+# Supabase tenant settings here cover both (a worker without the extension
+# would leave tenant schemas unconsolidated).
 
-name: nda-hindsight-mu
+name: nda-hindsight-supabase
 
 services:
   api:
-    image: ${HINDSIGHT_API_IMAGE:-hindsight-api-nda:dev}
+    image: ${HINDSIGHT_API_IMAGE:-hindsight-api-supabase:dev}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       HINDSIGHT_API_DATABASE_URL: ${HINDSIGHT_API_DATABASE_URL:?set in .env}
-      HINDSIGHT_API_TENANT_KEY_PEPPER: ${HINDSIGHT_API_TENANT_KEY_PEPPER:?set in .env}
-      HINDSIGHT_API_TENANT_EXTENSION: nda_hindsight_multiuser.tenant:NdaTenantExtension
-      HINDSIGHT_API_HTTP_EXTENSION: nda_hindsight_multiuser.http:NdaHttpExtension
+      # Upstream Supabase tenant extension: schema-per-user from the Supabase JWT.
+      HINDSIGHT_API_TENANT_EXTENSION: hindsight_ext_supabase_tenant:SupabaseTenantExtension
+      HINDSIGHT_API_TENANT_SUPABASE_URL: ${HINDSIGHT_API_TENANT_SUPABASE_URL:?set in .env}
+      # Only for legacy HS256 projects / startup health check; prefer JWKS (leave empty).
+      HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY: ${HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY:-}
+      HINDSIGHT_API_TENANT_SCHEMA_PREFIX: ${HINDSIGHT_API_TENANT_SCHEMA_PREFIX:-user}
+      # MCP OAuth lives in the API itself (nda-oauth HTTP extension): agents do
+      # OAuth 2.1 against Hindsight, log in via Supabase, and call MCP directly.
+      HINDSIGHT_API_HTTP_EXTENSION: nda_oauth.extension:NdaOAuthExtension
+      HINDSIGHT_API_HTTP_SUPABASE_URL: ${HINDSIGHT_API_TENANT_SUPABASE_URL:?set in .env}
+      HINDSIGHT_API_HTTP_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set in .env}
       HINDSIGHT_API_LLM_PROVIDER: openrouter
       HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_API_LLM_API_KEY:?set in .env}
       HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_API_LLM_MODEL:?set in .env}
@@ -44,7 +56,9 @@ services:
     restart: unless-stopped
     environment:
       HINDSIGHT_CP_DATAPLANE_API_URL: http://api:8888
-      HINDSIGHT_CP_SESSION_SECRET: ${HINDSIGHT_CP_SESSION_SECRET:?set in .env}
+      # Public (browser) Supabase client for dashboard sign-in + token refresh.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set in .env}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set in .env}
       HINDSIGHT_CP_HOSTNAME: 0.0.0.0
       HINDSIGHT_CP_PORT: "9999"
     depends_on:

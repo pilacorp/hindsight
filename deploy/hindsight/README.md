@@ -1,66 +1,82 @@
-# NDA multi-user Hindsight — deployment
+# NDA Hindsight — Supabase-tenant deployment
 
-Runs the two custom images built from this repo (`hindsight-api-nda` with the
-`nda_hindsight_multiuser` extensions, and `hindsight-cp-nda`, the forked Control
-Plane) against an **external** PostgreSQL/pgvector. Per-developer API keys, one
-isolated schema per user, admin-managed users and keys. For
-[pilacorp/nda-harness#3](https://github.com/pilacorp/nda-harness/issues/3).
+Runs two images built from this repo — `hindsight-api-supabase` (the upstream
+`hindsight_ext_supabase_tenant` extension) and `hindsight-cp-nda` (the forked
+Control Plane with Supabase sign-in) — against a **self-hosted open-source
+[Supabase](https://github.com/supabase/supabase)** stack (Auth + Postgres).
+Supabase Cloud is not a target. Identity is the Supabase user; each user gets an
+isolated `user_<uuid>` schema, provisioned on first authenticated access.
+Hindsight issues and stores no keys. For
+[pilacorp/nda-harness#10](https://github.com/pilacorp/nda-harness/issues/10),
+replacing the API-key model of #3.
+
+## Prerequisites
+
+- A self-hosted Supabase stack running on internal infra (its Auth + its
+  Postgres, which provides `vector`). Note its API URL, anon key, and Postgres URL.
+- Hindsight runs **no** database of its own; `HINDSIGHT_API_DATABASE_URL` points
+  at the Supabase Postgres, with a role that may create schemas.
 
 ## Build the images
 
 ```bash
 # from the repo root
-docker build -f hindsight-extensions/nda-multiuser/Dockerfile \
+docker build -f hindsight-extensions/supabase-tenant/Dockerfile \
   --build-arg HINDSIGHT_IMAGE=ghcr.io/vectorize-io/hindsight-api:1.0.0-slim \
-  -t hindsight-api-nda:dev .
-docker build -f docker/standalone/Dockerfile --target cp-only -t hindsight-cp-nda:dev .
+  -t hindsight-api-supabase:dev .
+
+# Control Plane. NEXT_PUBLIC_* are inlined by `next build`, so the browser
+# Supabase client needs them at BUILD time (anon key is public by design):
+docker build -f docker/standalone/Dockerfile --target cp-only \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=http://<internal-supabase-api> \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key> \
+  -t hindsight-cp-nda:dev .
 ```
 
 ## Configure and start
 
 ```bash
 cd deploy/hindsight
-cp .env.example .env           # fill in DATABASE_URL, LLM key, and the two secrets
-# generate the two secrets:
-#   openssl rand -hex 32   -> HINDSIGHT_API_TENANT_KEY_PEPPER
-#   openssl rand -hex 32   -> HINDSIGHT_CP_SESSION_SECRET
+cp .env.example .env    # fill in DATABASE_URL, Supabase URL/anon key, LLM key
 docker compose up -d
 ```
 
-The external PostgreSQL needs `CREATE EXTENSION vector` and a role that may
-create schemas (one `u_<handle>` schema is created per user at runtime).
-
-## Bootstrap the first admin key
-
-```bash
-docker compose exec api /app/api/.venv/bin/python -m nda_hindsight_multiuser.cli \
-  create-admin --name ops
-```
-
-Store the printed key; it is shown once. Log in to the dashboard with it to
-create users and issue their keys.
+Prefer JWKS verification (leave `HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY`
+empty). Set the service key only for a legacy HS256 project or the startup
+health check. Startup fails if the Supabase URL is missing, or if the project is
+HS256 and no service key is set.
 
 ## Use
 
 | Surface | URL |
 | --- | --- |
-| Dashboard | `http://127.0.0.1:9991` — login with an admin key (manage users/keys) or a user key (own memory) |
-| REST API | `http://127.0.0.1:8891/v1/default/banks/...` with `Authorization: Bearer <key>` |
-| MCP | `http://127.0.0.1:8891/mcp/<bank>/` with `Authorization: Bearer <user key>` |
-| Management API | `http://127.0.0.1:8891/ext/nda/v1/admin/*` (admin key) |
+| Dashboard | `http://127.0.0.1:9991` — sign in with a Supabase email + password |
+| REST API | `http://127.0.0.1:8891/v1/default/banks/...` with `Authorization: Bearer <supabase_jwt>` |
+| MCP (multi-bank) | `http://127.0.0.1:8891/mcp/` with `Authorization: Bearer <supabase_jwt>`; pick the bank per call via the tools' `bank_id` arg |
 
-- An **admin key** manages users and keys only; it is rejected from memory
-  (`/v1`, `/mcp` → 401).
-- A **user key** has its own schema; it creates banks and stores memory, and
-  never sees another user's banks.
-- Rotation: issue a new key, switch, revoke the old (multiple keys per user).
-  Disable blocks all of a user's keys; delete revokes them and reserves the
-  handle while retaining the schema (data deletion is a database-owner action).
+- The dashboard, REST, MCP, and the CLI all authenticate with the **same**
+  Supabase user, so they reach the same `user_<uuid>` schema. No Hindsight key.
+- A new Supabase user needs no restart; their schema is created on first call.
+- User management (create/disable/delete) is done in Supabase, not here. There
+  is no Hindsight admin UI.
+
+## Cutover from #3 and rollback
+
+- This is a local-dev cutover: the old `u_<handle>` schemas and `nda_auth`
+  key store from #3 are **not** reused as Supabase tenants and are never attached
+  to a Supabase user. For a fresh local run, drop them.
+- `list_tenants()` returns only schemas this process has already initialized;
+  after a restart, a user's schema is consolidated again once they re-authenticate.
+- Rollback = run the previous `hindsight-api-nda` image, restore
+  `HINDSIGHT_API_TENANT_EXTENSION=nda_hindsight_multiuser.tenant:NdaTenantExtension`
+  (+ pepper/HTTP extension), the API-key Control Plane image, and the previous
+  database URL.
 
 ## Notes
 
-- Credentials live in `.env` (Git-ignored), read inside the containers.
-- This stack defines no database service; point `HINDSIGHT_API_DATABASE_URL` at
-  the managed PostgreSQL, or run one separately.
+- Credentials live in `.env` (Git-ignored), read inside the containers. The
+  Supabase service-role key (if used) and the Postgres password stay server-side.
+- The single API container runs the in-process worker, so the tenant settings
+  cover consolidation too.
 - Put the internal TLS reverse proxy in front of both ports; this stack binds
   loopback and terminates no TLS.

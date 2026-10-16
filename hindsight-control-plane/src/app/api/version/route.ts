@@ -9,7 +9,7 @@ import { DATAPLANE_URL } from "@/lib/hindsight-client";
  * Adds whether per-user login is configured so the UI can adapt.
  */
 export async function GET() {
-  const perUserAuth = !!process.env.HINDSIGHT_CP_SESSION_SECRET;
+  const perUserAuth = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
   try {
     const res = await fetch(`${DATAPLANE_URL}/version`, { cache: "no-store" });
     const data = (res.ok ? await res.json().catch(() => ({})) : {}) as Record<string, unknown>;
