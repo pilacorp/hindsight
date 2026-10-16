@@ -1,3 +1,0 @@
-# Codex (~/.codex/config.toml): same gateway URL; Codex runs the OAuth flow.
-[mcp_servers.hindsight]
-url = "http://localhost:8020/mcp/personal/"

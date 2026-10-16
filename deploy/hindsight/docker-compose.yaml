@@ -28,6 +28,11 @@ services:
       # Only for legacy HS256 projects / startup health check; prefer JWKS (leave empty).
       HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY: ${HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY:-}
       HINDSIGHT_API_TENANT_SCHEMA_PREFIX: ${HINDSIGHT_API_TENANT_SCHEMA_PREFIX:-user}
+      # MCP OAuth lives in the API itself (nda-oauth HTTP extension): agents do
+      # OAuth 2.1 against Hindsight, log in via Supabase, and call MCP directly.
+      HINDSIGHT_API_HTTP_EXTENSION: nda_oauth.extension:NdaOAuthExtension
+      HINDSIGHT_API_HTTP_SUPABASE_URL: ${HINDSIGHT_API_TENANT_SUPABASE_URL:?set in .env}
+      HINDSIGHT_API_HTTP_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set in .env}
       HINDSIGHT_API_LLM_PROVIDER: openrouter
       HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_API_LLM_API_KEY:?set in .env}
       HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_API_LLM_MODEL:?set in .env}
@@ -61,23 +66,3 @@ services:
         condition: service_healthy
     ports:
       - "${HINDSIGHT_BIND_ADDRESS:-127.0.0.1}:${HINDSIGHT_CP_PUBLISH_PORT:-9991}:9999"
-
-  # MCP OAuth gateway (#10): lets local agents connect over OAuth 2.1 and keeps
-  # the session refreshed, while proxying MCP to the API with a Supabase JWT the
-  # unchanged supabase-tenant extension verifies. Agents point MCP at this.
-  oauth-gateway:
-    build: ../oauth-gateway
-    image: hindsight-oauth-gateway-nda:dev
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      GATEWAY_SUPABASE_URL: ${HINDSIGHT_API_TENANT_SUPABASE_URL:?set in .env}
-      GATEWAY_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set in .env}
-      GATEWAY_HINDSIGHT_URL: http://api:8888
-      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:8020}
-    depends_on:
-      api:
-        condition: service_healthy
-    ports:
-      - "${HINDSIGHT_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_PUBLISH_PORT:-8020}:8080"
