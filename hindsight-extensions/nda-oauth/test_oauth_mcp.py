@@ -7,7 +7,7 @@ endpoint directly and supabase-tenant verifies it. Drives the whole agent path
 headless (the login form accepts email/password, so no browser needed).
 
 Stdlib only. Config via env (defaults = the local dev stack):
-  API=http://localhost:8891  EMAIL=dev@local.test  PASSWORD=devpass123  BANK=mcptest
+  API=http://localhost:8891  EMAIL=dev@local.test  PASSWORD=devpass123
 """
 import base64
 import hashlib
@@ -22,7 +22,6 @@ import urllib.request
 API = os.environ.get("API", "http://localhost:8891").rstrip("/")
 EMAIL = os.environ.get("EMAIL", "dev@local.test")
 PASSWORD = os.environ.get("PASSWORD", "devpass123")
-BANK = os.environ.get("BANK", "mcptest")
 REDIRECT = "http://localhost:0/callback"
 PASS, FAIL = "\033[32mPASS\033[0m", "\033[31mFAIL\033[0m"
 _fails = 0
@@ -63,7 +62,7 @@ def _mcp(b):
 
 
 def main():
-    print(f"OAuth-in-Hindsight MCP test → {API} (user {EMAIL}, bank {BANK})\n")
+    print(f"OAuth-in-Hindsight MCP test → {API} (user {EMAIL}, multi-bank /mcp/)\n")
     # discovery is served by the API itself
     s, b, _ = _req("GET", f"{API}/.well-known/oauth-authorization-server")
     meta = json.loads(b) if s == 200 else {}
@@ -92,26 +91,26 @@ def main():
     print("2. MCP directly on the API with that token")
     hdr = {"Authorization": f"Bearer {access}", "Content-Type": "application/json",
            "Accept": "application/json, text/event-stream", "MCP-Protocol-Version": "2025-03-26"}
-    s, b, h = _req("POST", f"{API}/mcp/{BANK}/",
+    s, b, h = _req("POST", f"{API}/mcp/",
                    json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
                                "params": {"protocolVersion": "2025-03-26", "capabilities": {},
                                           "clientInfo": {"name": "oauth-mcp-test", "version": "0"}}}).encode(), hdr)
     sid = h.get("Mcp-Session-Id")
     check("MCP initialize", s == 200 and bool(sid))
     hdr["Mcp-Session-Id"] = sid
-    _req("POST", f"{API}/mcp/{BANK}/",
+    _req("POST", f"{API}/mcp/",
          json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}).encode(), hdr)
-    s, b, _ = _req("POST", f"{API}/mcp/{BANK}/",
+    s, b, _ = _req("POST", f"{API}/mcp/",
                    json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}).encode(), hdr)
     tools = {t["name"] for t in _mcp(b).get("result", {}).get("tools", [])}
-    check("tools/list has recall+retain", {"recall", "retain"} <= tools, f"{len(tools)} tools")
+    check("tools/list has recall/retain/list_banks", {"recall", "retain", "list_banks"} <= tools, f"{len(tools)} tools")
 
     print("3. refresh, then no-token rejected")
     s, b, _ = _req("POST", f"{API}/ext/oauth/token",
                    {"grant_type": "refresh_token", "refresh_token": refresh},
                    {"Content-Type": "application/x-www-form-urlencoded"})
     check("refresh_token -> new JWT", s == 200 and "access_token" in json.loads(b))
-    s, _, _ = _req("POST", f"{API}/mcp/{BANK}/", b"{}", {"Content-Type": "application/json"})
+    s, _, _ = _req("POST", f"{API}/mcp/", b"{}", {"Content-Type": "application/json"})
     check("no-token MCP -> 401", s == 401)
 
     print(f"\n{'ALL PASSED' if _fails == 0 else str(_fails) + ' FAILED'}")

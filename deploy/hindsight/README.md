@@ -52,7 +52,7 @@ HS256 and no service key is set.
 | --- | --- |
 | Dashboard | `http://127.0.0.1:9991` — sign in with a Supabase email + password |
 | REST API | `http://127.0.0.1:8891/v1/default/banks/...` with `Authorization: Bearer <supabase_jwt>` |
-| MCP | `http://127.0.0.1:8891/mcp/<bank>/` with `Authorization: Bearer <supabase_jwt>` |
+| MCP (multi-bank) | `http://127.0.0.1:8891/mcp/` with `Authorization: Bearer <supabase_jwt>`; pick the bank per call via the tools' `bank_id` arg |
 
 - The dashboard, REST, MCP, and the CLI all authenticate with the **same**
   Supabase user, so they reach the same `user_<uuid>` schema. No Hindsight key.
