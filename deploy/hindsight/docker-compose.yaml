@@ -20,13 +20,17 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Secrets come from .env via env_file (loaded into the container by name),
+    # not enumerated as ${...} in `environment:` below — so the compose source
+    # does not spell them out. The non-secret vars below are remaps/defaults.
+    # (`docker inspect` still shows these app images' env; they have no *_FILE
+    # support, so front production with a real secrets manager — see README.)
+    env_file:
+      - .env
     environment:
-      HINDSIGHT_API_DATABASE_URL: ${HINDSIGHT_API_DATABASE_URL:?set in .env}
       # Upstream Supabase tenant extension: schema-per-user from the Supabase JWT.
       HINDSIGHT_API_TENANT_EXTENSION: hindsight_ext_supabase_tenant:SupabaseTenantExtension
       HINDSIGHT_API_TENANT_SUPABASE_URL: ${HINDSIGHT_API_TENANT_SUPABASE_URL:?set in .env}
-      # Only for legacy HS256 projects / startup health check; prefer JWKS (leave empty).
-      HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY: ${HINDSIGHT_API_TENANT_SUPABASE_SERVICE_KEY:-}
       HINDSIGHT_API_TENANT_SCHEMA_PREFIX: ${HINDSIGHT_API_TENANT_SCHEMA_PREFIX:-user}
       # MCP OAuth lives in the API itself (nda-oauth HTTP extension): agents do
       # OAuth 2.1 against Hindsight, log in via Supabase, and call MCP directly.
@@ -34,7 +38,6 @@ services:
       HINDSIGHT_API_HTTP_SUPABASE_URL: ${HINDSIGHT_API_TENANT_SUPABASE_URL:?set in .env}
       HINDSIGHT_API_HTTP_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set in .env}
       HINDSIGHT_API_LLM_PROVIDER: openrouter
-      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_API_LLM_API_KEY:?set in .env}
       HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_API_LLM_MODEL:?set in .env}
       HINDSIGHT_API_EMBEDDINGS_PROVIDER: openrouter
       HINDSIGHT_API_EMBEDDINGS_OPENROUTER_MODEL: ${HINDSIGHT_EMBEDDINGS_MODEL:?set in .env}

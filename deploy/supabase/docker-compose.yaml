@@ -20,8 +20,13 @@ services:
       POSTGRES_HOST: /var/run/postgresql
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      # Read from a mounted secret file, not the environment, so the DB
+      # superuser password stays out of `docker compose config` and
+      # `docker inspect` (the supabase/postgres entrypoint honours *_FILE).
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       JWT_EXP: ${JWT_EXPIRY:-3600}
+    secrets:
+      - postgres_password
     volumes:
       # The supabase/postgres image pre-creates the Supabase roles; these set
       # their passwords and the jwt_exp setting. Applied once on first init.
@@ -54,6 +59,9 @@ services:
       # refs resolve); dev-auth-admin.sql makes it superuser so its migration can
       # CREATE OR REPLACE the auth.uid()/role()/email() functions the image ships
       # owned by postgres.
+      # GoTrue has no *_FILE support and needs the password inside this URL, so it
+      # is interpolated here (local-dev residual — front production with a real
+      # secrets manager, as the README says).
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:9991}
       GOTRUE_URI_ALLOW_LIST: "*"
@@ -85,6 +93,12 @@ services:
     ports:
       # The single Supabase API URL. /auth/v1/* -> GoTrue.
       - "${SUPABASE_PUBLISH_PORT:-8000}:8000"
+
+secrets:
+  # Sourced from the POSTGRES_PASSWORD var in your .env and mounted as a file;
+  # Compose never writes its value into the resolved config or container env.
+  postgres_password:
+    environment: POSTGRES_PASSWORD
 
 volumes:
   supabase-db-data:

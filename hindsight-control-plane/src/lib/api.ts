@@ -42,6 +42,33 @@ export async function authedFetch(path: string, options?: RequestInit): Promise<
 }
 
 /**
+ * Download an authed /api resource as a file. A browser-native navigation or an
+ * `<a download>` click sends no Authorization header, and since issue #10 moved
+ * auth to a per-request bearer token, such a request is rejected with 401. So
+ * fetch the bytes with the token attached (via authedFetch) and save the blob.
+ * Returns false (and toasts) when the request fails.
+ */
+export async function downloadAuthed(path: string, filename: string): Promise<boolean> {
+  const response = await authedFetch(path);
+  if (!response.ok) {
+    toast.error("Download failed", { description: `HTTP ${response.status}`, duration: 5000 });
+    return false;
+  }
+  const url = URL.createObjectURL(await response.blob());
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  return true;
+}
+
+/**
  * Reduce an API error `details` value to a string safe to render in a toast.
  * Endpoints may return a plain string or a structured object (e.g. a Memory
  * Defense block returns `{violations: [{message}]}`); objects cannot be passed

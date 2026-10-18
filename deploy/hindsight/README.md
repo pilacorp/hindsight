@@ -20,8 +20,11 @@ replacing the API-key model of #3.
 ## Build the images
 
 ```bash
-# from the repo root
-docker build -f hindsight-extensions/supabase-tenant/Dockerfile \
+# from the repo root. Build from the nda-oauth Dockerfile: it bundles BOTH the
+# supabase-tenant extension (verifies the JWT) and the nda-oauth extension that
+# the compose file wires up as HINDSIGHT_API_HTTP_EXTENSION. Building from the
+# supabase-tenant Dockerfile omits nda-oauth, so the API would fail to start.
+docker build -f hindsight-extensions/nda-oauth/Dockerfile \
   --build-arg HINDSIGHT_IMAGE=ghcr.io/vectorize-io/hindsight-api:1.0.0-slim \
   -t hindsight-api-supabase:dev .
 

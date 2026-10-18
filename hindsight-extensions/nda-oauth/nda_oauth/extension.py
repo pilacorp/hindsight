@@ -20,6 +20,7 @@ move to a shared store to scale or survive restarts.
 """
 import base64
 import hashlib
+import html
 import secrets
 import time
 import urllib.parse
@@ -33,6 +34,31 @@ from hindsight_api.extensions import HttpExtension
 
 def _b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def _ok_redirect(uri: str) -> bool:
+    """A client may register only an https redirect URI, or http to a loopback
+    host (native/dev clients, RFC 8252). Plain http to an external host would let
+    a stolen authorization code be redirected to an attacker, so reject it."""
+    try:
+        u = urllib.parse.urlparse(uri)
+    except ValueError:
+        return False
+    if u.scheme == "https" and u.hostname:
+        return True
+    return u.scheme == "http" and u.hostname in ("localhost", "127.0.0.1", "::1")
+
+
+def _render_login(*, error: str, client_id: str, redirect_uri: str, state: str,
+                  code_challenge: str) -> str:
+    """Render the login form. Every value is attacker-influenced (query/form), so
+    HTML-escape each before it lands in the page — unescaped, a crafted `state`
+    or `redirect_uri` closes the attribute and injects script."""
+    def esc(v: str) -> str:
+        return html.escape(v, quote=True)
+    return _LOGIN_FORM.format(error=esc(error), client_id=esc(client_id),
+                              redirect_uri=esc(redirect_uri), state=esc(state),
+                              code_challenge=esc(code_challenge))
 
 
 _LOGIN_FORM = """<!doctype html><html><head><meta charset=utf-8>
@@ -116,6 +142,11 @@ class NdaOAuthExtension(HttpExtension):
             redirect_uris = body.get("redirect_uris") or []
             if not isinstance(redirect_uris, list) or not redirect_uris:
                 return JSONResponse({"error": "invalid_redirect_uri"}, status_code=400)
+            if not all(isinstance(u, str) and _ok_redirect(u) for u in redirect_uris):
+                return JSONResponse(
+                    {"error": "invalid_redirect_uri",
+                     "error_description": "redirect_uris must be https, or http on a loopback host"},
+                    status_code=400)
             client_id = "c_" + secrets.token_urlsafe(16)
             self._clients[client_id] = redirect_uris
             return {
@@ -134,9 +165,11 @@ class NdaOAuthExtension(HttpExtension):
                 return HTMLResponse("invalid client_id or redirect_uri", status_code=400)
             if q.get("code_challenge_method", "S256") != "S256":
                 return HTMLResponse("code_challenge_method must be S256", status_code=400)
-            return _LOGIN_FORM.format(error="", client_id=q.get("client_id", ""),
-                                      redirect_uri=q.get("redirect_uri", ""), state=q.get("state", ""),
-                                      code_challenge=q.get("code_challenge", ""))
+            if not q.get("code_challenge"):
+                return HTMLResponse("code_challenge required (PKCE)", status_code=400)
+            return _render_login(error="", client_id=q.get("client_id", ""),
+                                 redirect_uri=q.get("redirect_uri", ""), state=q.get("state", ""),
+                                 code_challenge=q.get("code_challenge", ""))
 
         @router.post("/oauth/authorize")
         async def authorize_submit(request: Request):
@@ -144,18 +177,27 @@ class NdaOAuthExtension(HttpExtension):
             client_id, redirect_uri = form.get("client_id", ""), form.get("redirect_uri", "")
             if not _valid(client_id, redirect_uri):
                 return JSONResponse({"error": "invalid client_id or redirect_uri"}, status_code=400)
+            # PKCE is mandatory: never mint a code without a challenge to bind it
+            # to, or the token endpoint has nothing to check the verifier against.
+            # The form POST is reachable directly, so enforce it here, not only on
+            # the GET that renders the form.
+            challenge = form.get("code_challenge", "")
+            if not challenge:
+                return JSONResponse(
+                    {"error": "invalid_request", "error_description": "code_challenge required (PKCE)"},
+                    status_code=400)
             status, supa = await self._supabase_token(
                 "password", {"email": form.get("email", ""), "password": form.get("password", "")})
             if status != 200 or "access_token" not in supa:
                 return HTMLResponse(
-                    _LOGIN_FORM.format(error="Invalid email or password.", client_id=client_id,
-                                       redirect_uri=redirect_uri, state=form.get("state", ""),
-                                       code_challenge=form.get("code_challenge", "")),
+                    _render_login(error="Invalid email or password.", client_id=client_id,
+                                  redirect_uri=redirect_uri, state=form.get("state", ""),
+                                  code_challenge=challenge),
                     status_code=401)
             code = secrets.token_urlsafe(24)
             self._codes[code] = {
                 "client_id": client_id, "redirect_uri": redirect_uri,
-                "challenge": form.get("code_challenge", ""),
+                "challenge": challenge,
                 "supa_access": supa["access_token"], "supa_refresh": supa.get("refresh_token", ""),
                 "exp": int(time.time()) + 120,
             }
@@ -175,7 +217,12 @@ class NdaOAuthExtension(HttpExtension):
                     return JSONResponse({"error": "invalid_grant"}, status_code=400)
                 if entry["client_id"] != form.get("client_id") or entry["redirect_uri"] != form.get("redirect_uri"):
                     return JSONResponse({"error": "invalid_grant"}, status_code=400)
-                if _b64url(hashlib.sha256(form.get("code_verifier", "").encode()).digest()) != entry["challenge"]:
+                # PKCE: require a verifier that hashes to the bound challenge. A
+                # missing verifier or an (impossible after authorize, but guard
+                # anyway) empty challenge must never pass; compare constant-time.
+                verifier = form.get("code_verifier", "")
+                if (not verifier or not entry["challenge"] or not secrets.compare_digest(
+                        _b64url(hashlib.sha256(verifier.encode()).digest()), entry["challenge"])):
                     return JSONResponse({"error": "invalid_grant", "error_description": "PKCE"}, status_code=400)
                 # Pass-through: the Supabase access token IS the OAuth access token,
                 # so the agent calls Hindsight MCP directly and supabase-tenant verifies it.
