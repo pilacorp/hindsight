@@ -2226,5 +2226,32 @@
     "pausedTitle": "The last refresh failed, so this model does not refresh itself any more — refresh it to resume",
     "retrying": "Retrying",
     "retryingTitle": "The last attempt failed and another is queued — automatic refreshes stop only if this one fails too"
+  },
+  "password": {
+    "setupTitle": "Set your password",
+    "changeTitle": "Change password",
+    "setupDescription": "Accept your invitation or reset your password.",
+    "changeDescription": "Confirm your current password and choose a new one.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "requirements": "Use at least 8 characters.",
+    "save": "Save password",
+    "saving": "Saving…",
+    "success": "Your password has been updated.",
+    "continue": "Continue to Hindsight",
+    "signIn": "Back to sign in",
+    "loading": "Checking your session…",
+    "invalidLink": "This link is invalid, expired, or already used. Ask your administrator for a new invitation or recovery email.",
+    "signInRequired": "Your session is missing, expired, or changed. Please sign in again.",
+    "connectionError": "Unable to connect to Supabase. Please try again.",
+    "mismatch": "The new passwords do not match.",
+    "tooShort": "Use at least 8 characters for your password.",
+    "differentPassword": "Enter your current password and choose a different new password."
+  },
+  "account": {
+    "title": "Account",
+    "signedInAs": "Signed in as",
+    "logout": "Logout"
   }
 }

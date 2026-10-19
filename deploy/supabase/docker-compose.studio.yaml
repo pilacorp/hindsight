@@ -1,0 +1,71 @@
+# Opt-in admin UI: docker compose -f docker-compose.yaml -f docker-compose.studio.yaml up -d
+# Versions paired from supabase/supabase docker/docker-compose.yml (2026-10-19).
+services:
+  meta:
+    image: supabase/postgres-meta:v0.100.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: "8080"
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: "5432"
+      PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      CRYPTO_KEY: ${PG_META_CRYPTO_KEY:?generate and set in .env}
+
+  studio:
+    image: supabase/studio:2026.10.12-sha-3699278
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_started
+      meta:
+        condition: service_started
+    environment:
+      HOSTNAME: 0.0.0.0
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_USER_READ_WRITE: postgres
+      PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY:?generate and set in .env}
+      SUPABASE_URL: http://gateway:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${ANON_KEY:?set in .env}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY:?set in .env}
+      AUTH_JWT_SECRET: ${JWT_SECRET:?set in .env}
+      DEFAULT_ORGANIZATION_NAME: NDA
+      DEFAULT_PROJECT_NAME: Hindsight
+      PGRST_DB_SCHEMAS: public
+      ENABLED_FEATURES_LOGS_ALL: "false"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/platform/profile').then(r => process.exit(r.status === 200 ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  studio-gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      studio:
+        condition: service_healthy
+    volumes:
+      - ./volumes/api/studio.conf:/etc/nginx/conf.d/default.conf:ro
+    secrets:
+      - studio_htpasswd
+    ports:
+      - "127.0.0.1:${STUDIO_PUBLISH_PORT:-8001}:8001"
+
+secrets:
+  studio_htpasswd:
+    file: ./.studio.htpasswd

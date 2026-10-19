@@ -2226,5 +2226,32 @@
     "pausedTitle": "Die letzte Aktualisierung ist fehlgeschlagen, daher aktualisiert sich dieses Modell nicht mehr selbst – aktualisieren Sie es, um fortzufahren",
     "retrying": "Wiederholung",
     "retryingTitle": "Der letzte Versuch ist fehlgeschlagen, ein weiterer steht an – automatische Aktualisierungen stoppen nur, wenn auch dieser fehlschlägt"
+  },
+  "password": {
+    "setupTitle": "Passwort festlegen",
+    "changeTitle": "Passwort ändern",
+    "setupDescription": "Nehmen Sie Ihre Einladung an oder setzen Sie Ihr Passwort zurück.",
+    "changeDescription": "Bestätigen Sie Ihr aktuelles Passwort und wählen Sie ein neues.",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "confirmPassword": "Neues Passwort bestätigen",
+    "requirements": "Verwenden Sie mindestens 8 Zeichen.",
+    "save": "Passwort speichern",
+    "saving": "Wird gespeichert…",
+    "success": "Ihr Passwort wurde aktualisiert.",
+    "continue": "Weiter zu Hindsight",
+    "signIn": "Zurück zur Anmeldung",
+    "loading": "Sitzung wird geprüft…",
+    "invalidLink": "Dieser Link ist ungültig, abgelaufen oder bereits verwendet. Bitten Sie Ihren Administrator um eine neue Einladung oder Wiederherstellungs-E-Mail.",
+    "signInRequired": "Ihre Sitzung fehlt, ist abgelaufen oder wurde geändert. Melden Sie sich erneut an.",
+    "connectionError": "Verbindung zu Supabase nicht möglich. Versuchen Sie es erneut.",
+    "mismatch": "Die neuen Passwörter stimmen nicht überein.",
+    "tooShort": "Verwenden Sie mindestens 8 Zeichen für Ihr Passwort.",
+    "differentPassword": "Geben Sie Ihr aktuelles Passwort ein und wählen Sie ein anderes neues Passwort."
+  },
+  "account": {
+    "title": "Konto",
+    "signedInAs": "Angemeldet als",
+    "logout": "Abmelden"
   }
 }

@@ -2226,5 +2226,32 @@
     "pausedTitle": "上次刷新失败，该模型不再自动刷新——手动刷新可恢复",
     "retrying": "重试中",
     "retryingTitle": "上次尝试失败，已排队下一次尝试——只有这次也失败才会停止自动刷新"
+  },
+  "password": {
+    "setupTitle": "设置密码",
+    "changeTitle": "修改密码",
+    "setupDescription": "接受邀请或重置密码。",
+    "changeDescription": "确认当前密码并设置新密码。",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "requirements": "请使用至少8个字符。",
+    "save": "保存密码",
+    "saving": "正在保存…",
+    "success": "密码已更新。",
+    "continue": "继续前往 Hindsight",
+    "signIn": "返回登录",
+    "loading": "正在检查会话…",
+    "invalidLink": "此链接无效、已过期或已使用。请联系管理员重新发送邀请或密码重置邮件。",
+    "signInRequired": "会话不存在、已过期或已更改，请重新登录。",
+    "connectionError": "无法连接 Supabase，请重试。",
+    "mismatch": "两次输入的新密码不一致。",
+    "tooShort": "密码必须至少包含8个字符。",
+    "differentPassword": "请输入当前密码，并设置一个不同的新密码。"
+  },
+  "account": {
+    "title": "账户",
+    "signedInAs": "当前登录用户",
+    "logout": "退出登录"
   }
 }

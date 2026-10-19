@@ -2226,5 +2226,32 @@
     "pausedTitle": "마지막 새로 고침이 실패하여 이 모델은 더 이상 자동으로 새로 고쳐지지 않습니다. 새로 고치면 다시 시작됩니다",
     "retrying": "재시도 중",
     "retryingTitle": "마지막 시도가 실패했고 다음 시도가 대기 중입니다. 이번에도 실패하면 자동 새로 고침이 중지됩니다"
+  },
+  "password": {
+    "setupTitle": "비밀번호 설정",
+    "changeTitle": "비밀번호 변경",
+    "setupDescription": "초대를 수락하거나 비밀번호를 재설정하세요.",
+    "changeDescription": "현재 비밀번호를 확인하고 새 비밀번호를 선택하세요.",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmPassword": "새 비밀번호 확인",
+    "requirements": "8자 이상 입력하세요.",
+    "save": "비밀번호 저장",
+    "saving": "저장 중…",
+    "success": "비밀번호가 업데이트되었습니다.",
+    "continue": "Hindsight로 이동",
+    "signIn": "로그인으로 돌아가기",
+    "loading": "세션 확인 중…",
+    "invalidLink": "유효하지 않거나 만료되었거나 이미 사용한 링크입니다. 관리자에게 새 초대 또는 복구 이메일을 요청하세요.",
+    "signInRequired": "세션이 없거나 만료되었거나 변경되었습니다. 다시 로그인하세요.",
+    "connectionError": "Supabase에 연결할 수 없습니다. 다시 시도하세요.",
+    "mismatch": "새 비밀번호가 일치하지 않습니다.",
+    "tooShort": "비밀번호는 8자 이상이어야 합니다.",
+    "differentPassword": "현재 비밀번호를 입력하고 다른 새 비밀번호를 선택하세요."
+  },
+  "account": {
+    "title": "계정",
+    "signedInAs": "로그인한 사용자",
+    "logout": "로그아웃"
   }
 }

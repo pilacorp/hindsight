@@ -2226,5 +2226,32 @@
     "pausedTitle": "La última actualización falló, así que este modelo ya no se actualiza solo: actualízalo para reanudarlo",
     "retrying": "Reintentando",
     "retryingTitle": "El último intento falló y hay otro en cola: las actualizaciones automáticas solo se detienen si este también falla"
+  },
+  "password": {
+    "setupTitle": "Establece tu contraseña",
+    "changeTitle": "Cambiar contraseña",
+    "setupDescription": "Acepta tu invitación o restablece tu contraseña.",
+    "changeDescription": "Confirma tu contraseña actual y elige una nueva.",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirma la nueva contraseña",
+    "requirements": "Usa al menos 8 caracteres.",
+    "save": "Guardar contraseña",
+    "saving": "Guardando…",
+    "success": "Tu contraseña se ha actualizado.",
+    "continue": "Continuar a Hindsight",
+    "signIn": "Volver al inicio de sesión",
+    "loading": "Comprobando tu sesión…",
+    "invalidLink": "Este enlace no es válido, ha caducado o ya se ha usado. Solicita una nueva invitación o un correo de recuperación al administrador.",
+    "signInRequired": "Tu sesión no existe, ha caducado o ha cambiado. Inicia sesión de nuevo.",
+    "connectionError": "No se pudo conectar con Supabase. Inténtalo de nuevo.",
+    "mismatch": "Las nuevas contraseñas no coinciden.",
+    "tooShort": "Usa al menos 8 caracteres para tu contraseña.",
+    "differentPassword": "Introduce tu contraseña actual y elige una nueva diferente."
+  },
+  "account": {
+    "title": "Cuenta",
+    "signedInAs": "Sesión iniciada como",
+    "logout": "Cerrar sesión"
   }
 }

@@ -2226,5 +2226,32 @@
     "pausedTitle": "A última atualização falhou, por isso este modelo já não se atualiza sozinho — atualize-o para retomar",
     "retrying": "A repetir",
     "retryingTitle": "A última tentativa falhou e há outra em fila — as atualizações automáticas só param se esta também falhar"
+  },
+  "password": {
+    "setupTitle": "Definir sua senha",
+    "changeTitle": "Alterar senha",
+    "setupDescription": "Aceite seu convite ou redefina sua senha.",
+    "changeDescription": "Confirme sua senha atual e escolha uma nova.",
+    "currentPassword": "Senha atual",
+    "newPassword": "Nova senha",
+    "confirmPassword": "Confirmar nova senha",
+    "requirements": "Use pelo menos 8 caracteres.",
+    "save": "Salvar senha",
+    "saving": "Salvando…",
+    "success": "Sua senha foi atualizada.",
+    "continue": "Continuar para o Hindsight",
+    "signIn": "Voltar para entrar",
+    "loading": "Verificando sua sessão…",
+    "invalidLink": "Este link é inválido, expirou ou já foi usado. Peça ao administrador um novo convite ou e-mail de recuperação.",
+    "signInRequired": "Sua sessão está ausente, expirou ou mudou. Entre novamente.",
+    "connectionError": "Não foi possível conectar ao Supabase. Tente novamente.",
+    "mismatch": "As novas senhas não coincidem.",
+    "tooShort": "Use pelo menos 8 caracteres na senha.",
+    "differentPassword": "Digite sua senha atual e escolha uma nova senha diferente."
+  },
+  "account": {
+    "title": "Conta",
+    "signedInAs": "Sessão iniciada como",
+    "logout": "Sair"
   }
 }

@@ -8,7 +8,6 @@ import { useBank } from "@/lib/bank-context";
 import { bankRoute } from "@/lib/bank-url";
 import { hoistCurrentBank } from "@/lib/bank-order";
 import { withBasePath } from "@/lib/base-path";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { client } from "@/lib/api";
 import type { RetainContentBlock as ContentBlock } from "@/lib/api";
 import {
@@ -20,6 +19,7 @@ import {
 } from "@/components/content-composer";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { AccountMenu } from "@/components/account-menu";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -51,7 +51,6 @@ import {
   Lock,
   ChevronDown,
   ChevronRight,
-  LogOut,
   Copy,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
@@ -848,26 +847,7 @@ function BankSelectorInner() {
 
         <LanguageSwitcher />
 
-        {/* NDA fork: every user reaches the memory area via a session, so
-            logout is always available (upstream gated this on access_key_auth). */}
-        <div className="h-8 w-px bg-border" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          title="Logout"
-          onClick={async () => {
-            // Issue #10: the session lives in Supabase (client-side), so signing
-            // out means clearing that session, not deleting a server cookie.
-            try {
-              await getSupabaseBrowserClient().auth.signOut();
-            } finally {
-              window.location.href = withBasePath("/login");
-            }
-          }}
-        >
-          <LogOut className="h-5 w-5" />
-        </Button>
+        <AccountMenu />
 
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogContent className="sm:max-w-[550px]">

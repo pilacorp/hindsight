@@ -2226,5 +2226,32 @@
     "pausedTitle": "前回の更新が失敗したため、このモデルは自動更新されません。更新すると再開します",
     "retrying": "再試行中",
     "retryingTitle": "前回の試行は失敗し、次の試行が待機中です。これも失敗した場合にのみ自動更新が停止します"
+  },
+  "password": {
+    "setupTitle": "パスワードを設定",
+    "changeTitle": "パスワードを変更",
+    "setupDescription": "招待を承認するか、パスワードを再設定してください。",
+    "changeDescription": "現在のパスワードを確認し、新しいパスワードを設定してください。",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "confirmPassword": "新しいパスワードを確認",
+    "requirements": "8文字以上で入力してください。",
+    "save": "パスワードを保存",
+    "saving": "保存中…",
+    "success": "パスワードを更新しました。",
+    "continue": "Hindsightへ進む",
+    "signIn": "ログインに戻る",
+    "loading": "セッションを確認中…",
+    "invalidLink": "このリンクは無効、期限切れ、または使用済みです。管理者に新しい招待または再設定メールを依頼してください。",
+    "signInRequired": "セッションがないか、期限切れ、または変更されています。再度ログインしてください。",
+    "connectionError": "Supabaseに接続できません。もう一度お試しください。",
+    "mismatch": "新しいパスワードが一致しません。",
+    "tooShort": "パスワードは8文字以上にしてください。",
+    "differentPassword": "現在のパスワードを入力し、異なる新しいパスワードを設定してください。"
+  },
+  "account": {
+    "title": "アカウント",
+    "signedInAs": "ログイン中のユーザー",
+    "logout": "ログアウト"
   }
 }
