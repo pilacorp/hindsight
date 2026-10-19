@@ -63,6 +63,48 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY from this .env>
 `host.docker.internal` is how the Hindsight containers reach this stack on the
 host; the browser uses `localhost`.
 
+## Backend-only database access
+
+Hindsight uses a direct backend Postgres connection and isolates users in
+`user_<uuid>` schemas. This deployment publishes Auth, not PostgREST or GraphQL.
+The browser's Supabase session does not grant direct access to Hindsight tables.
+
+`volumes/db/hindsight-security.sql` runs automatically on a fresh database. It
+removes table/sequence grants to `anon`, `authenticated`, and `PUBLIC` in `public`,
+revokes Supabase's automatic client grants for future objects created there by
+`postgres` or `supabase_admin`, and enables RLS on existing public tables. A
+CREATE TABLE event trigger enables RLS on future public tables, including tables
+added by Hindsight upgrades. No browser-access policies are installed. Auth,
+Storage, and tenant schemas are outside its scope.
+
+Hindsight's current `postgres` backend connection and Studio's administrator
+connection retain access because superusers bypass RLS. If changing the backend
+to an ordinary role, explicitly design its grants and RLS policies first.
+
+Existing database volumes do not rerun init scripts. Apply this idempotent
+upgrade once (from `deploy/supabase`); no application restart is needed:
+
+```bash
+docker compose exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < volumes/db/hindsight-security.sql
+```
+
+Regression test, using only a new disposable database:
+
+```bash
+docker compose exec -T db createdb -U postgres hindsight_security_test
+docker compose exec -T db mkdir -p /tmp/hindsight-security-test/volumes/db
+docker compose cp test-database-security.sql db:/tmp/hindsight-security-test/test-database-security.sql
+docker compose cp volumes/db/hindsight-security.sql db:/tmp/hindsight-security-test/volumes/db/hindsight-security.sql
+docker compose exec -T db psql -U postgres -d hindsight_security_test \
+  -f /tmp/hindsight-security-test/test-database-security.sql
+docker compose exec -T db dropdb -U postgres hindsight_security_test
+```
+
+Keep these database tables behind Hindsight's API. Enabling a Supabase Data API
+later requires a separate review of exposed schemas, table policies, and function
+permissions. Do not add permissive policies to silence Studio's RLS warnings.
+
 ## Optional Studio account administration
 
 Studio is for trusted infrastructure administrators. It includes a SQL Editor

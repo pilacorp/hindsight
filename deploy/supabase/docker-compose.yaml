@@ -33,6 +33,8 @@ services:
       - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
       - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
       - ./volumes/db/dev-auth-admin.sql:/docker-entrypoint-initdb.d/init-scripts/99-dev-auth-admin.sql:Z
+      # Backend-only public tables: repair grants/RLS and protect future tables.
+      - ./volumes/db/hindsight-security.sql:/docker-entrypoint-initdb.d/init-scripts/99-hindsight-security.sql:ro
       - supabase-db-data:/var/lib/postgresql/data:Z
     ports:
       # Host port for Hindsight's HINDSIGHT_API_DATABASE_URL and local psql.
