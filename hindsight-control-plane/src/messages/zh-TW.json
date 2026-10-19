@@ -2226,5 +2226,32 @@
     "pausedTitle": "上次重新整理失敗，此模型不再自動更新——手動重新整理即可恢復",
     "retrying": "重試中",
     "retryingTitle": "上次嘗試失敗，已排入下一次嘗試——只有這次也失敗才會停止自動重新整理"
+  },
+  "password": {
+    "setupTitle": "設定密碼",
+    "changeTitle": "變更密碼",
+    "setupDescription": "接受邀請或重設密碼。",
+    "changeDescription": "確認目前密碼並設定新密碼。",
+    "currentPassword": "目前密碼",
+    "newPassword": "新密碼",
+    "confirmPassword": "確認新密碼",
+    "requirements": "請使用至少8個字元。",
+    "save": "儲存密碼",
+    "saving": "儲存中…",
+    "success": "密碼已更新。",
+    "continue": "繼續前往 Hindsight",
+    "signIn": "返回登入",
+    "loading": "正在檢查工作階段…",
+    "invalidLink": "此連結無效、已過期或已使用。請聯絡管理員重新傳送邀請或密碼重設郵件。",
+    "signInRequired": "工作階段不存在、已過期或已變更，請重新登入。",
+    "connectionError": "無法連線至 Supabase，請重試。",
+    "mismatch": "兩次輸入的新密碼不一致。",
+    "tooShort": "密碼必須至少包含8個字元。",
+    "differentPassword": "請輸入目前密碼，並設定不同的新密碼。"
+  },
+  "account": {
+    "title": "帳號",
+    "signedInAs": "目前登入的使用者",
+    "logout": "登出"
   }
 }

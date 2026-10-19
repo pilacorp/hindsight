@@ -64,6 +64,10 @@ HS256 and no service key is set.
   is no Hindsight admin UI. For the local minimal stack, enable the optional
   [Supabase Studio account administration](../supabase/README.md#optional-studio-account-administration)
   dashboard; its administrator login is separate from Hindsight sign-in.
+- Invitations and recovery emails open Hindsight's `/auth/set-password` page.
+  Signed-in users can choose **Account → Change password** in the header or visit
+  `/account/change-password`. Configure the SMTP relay and public app URL using
+  the [Supabase deployment instructions](../supabase/README.md#smtp-and-password-flows).
 
 ## Cutover from #3 and rollback
 

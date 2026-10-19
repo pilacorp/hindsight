@@ -2226,5 +2226,32 @@
     "pausedTitle": "La dernière actualisation a échoué : ce modèle ne s'actualise plus tout seul — actualisez-le pour reprendre",
     "retrying": "Nouvel essai",
     "retryingTitle": "La dernière tentative a échoué et une autre est en file — les actualisations automatiques ne s'arrêtent que si celle-ci échoue aussi"
+  },
+  "password": {
+    "setupTitle": "Définir votre mot de passe",
+    "changeTitle": "Changer le mot de passe",
+    "setupDescription": "Acceptez votre invitation ou réinitialisez votre mot de passe.",
+    "changeDescription": "Confirmez votre mot de passe actuel et choisissez-en un nouveau.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer le nouveau mot de passe",
+    "requirements": "Utilisez au moins 8 caractères.",
+    "save": "Enregistrer le mot de passe",
+    "saving": "Enregistrement…",
+    "success": "Votre mot de passe a été mis à jour.",
+    "continue": "Continuer vers Hindsight",
+    "signIn": "Retour à la connexion",
+    "loading": "Vérification de votre session…",
+    "invalidLink": "Ce lien est invalide, expiré ou déjà utilisé. Demandez une nouvelle invitation ou un courriel de récupération à votre administrateur.",
+    "signInRequired": "Votre session est absente, expirée ou a changé. Veuillez vous reconnecter.",
+    "connectionError": "Connexion à Supabase impossible. Réessayez.",
+    "mismatch": "Les nouveaux mots de passe ne correspondent pas.",
+    "tooShort": "Utilisez au moins 8 caractères pour votre mot de passe.",
+    "differentPassword": "Saisissez votre mot de passe actuel et choisissez un nouveau mot de passe différent."
+  },
+  "account": {
+    "title": "Compte",
+    "signedInAs": "Connecté en tant que",
+    "logout": "Se déconnecter"
   }
 }

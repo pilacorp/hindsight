@@ -13,4 +13,10 @@ describe("memory provider scoping", () => {
     expect(isMemoryArea("/dashboard")).toBe(true);
     expect(isMemoryArea("/banks/personal")).toBe(true);
   });
+
+  it("keeps invitation and password pages independent from memory authentication", () => {
+    expect(isMemoryArea("/auth/set-password?token_hash=token&type=invite")).toBe(false);
+    expect(isMemoryArea("/account/change-password")).toBe(false);
+    expect(isMemoryArea("/authentication-not-an-auth-page")).toBe(true);
+  });
 });

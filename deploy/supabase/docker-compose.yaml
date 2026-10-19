@@ -73,8 +73,27 @@ services:
       GOTRUE_JWT_SECRET: ${JWT_SECRET:?set in .env}
       GOTRUE_JWT_ISSUER: ${API_EXTERNAL_URL:-http://localhost:8000/auth/v1}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
-      # No SMTP in local dev: auto-confirm sign-ups so email+password works offline.
-      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_PASSWORD_MIN_LENGTH: "8"
+      # Enforce current-password verification on the server, not only in the UI.
+      # Invited accounts setting their first password and recovery sessions are exempt.
+      GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_CURRENT_PASSWORD: "true"
+      # Blank SMTP credentials keep offline local development working. Set these
+      # in the server's Git-ignored .env to enable delivery through your relay.
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-Hindsight}
+      GOTRUE_MAILER_AUTOCONFIRM: ${MAILER_AUTOCONFIRM:-true}
+      # Direct links let Hindsight verify the invitation only after form submission.
+      GOTRUE_MAILER_TEMPLATES_INVITE: http://gateway:8000/auth/templates/invite.html
+      GOTRUE_MAILER_TEMPLATES_RECOVERY: http://gateway:8000/auth/templates/recovery.html
+      # Correct gateway paths also cover fallback/default email templates.
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
       interval: 5s
@@ -90,6 +109,7 @@ services:
         condition: service_healthy
     volumes:
       - ./volumes/api/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./volumes/auth:/etc/nginx/auth-templates:ro
     ports:
       # The single Supabase API URL. /auth/v1/* -> GoTrue.
       - "${SUPABASE_PUBLISH_PORT:-8000}:8000"

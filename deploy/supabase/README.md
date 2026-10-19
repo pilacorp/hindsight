@@ -110,6 +110,8 @@ configuration. The existing local-development limitations still apply.
 - **Create:** Add user → Create new user; supply email/password and keep Auto
   confirm enabled for this local stack. The account can immediately sign in to
   Hindsight at `http://127.0.0.1:9991`.
+- **Invite:** Add user → Send invitation. With SMTP configured, the recipient gets
+  a Hindsight link to accept the invitation and choose their own password.
 - **Ban/unban:** select a user, choose Ban user and a duration; use Unban user to
   restore sign-in.
 - **Delete:** select a disposable or retired user and choose Delete user.
@@ -120,11 +122,80 @@ configuration. The existing local-development limitations still apply.
   email/password changes rather than directly editing Auth-managed fields.
 
 Send invitation, password recovery, and magic-link actions need working SMTP.
-This stack intentionally configures no SMTP; Studio does not supply a mail
-server. Configure GoTrue's SMTP settings separately before using those actions.
+The relay variables below are wired into GoTrue but left blank by default;
+Studio does not supply a mail server.
 Studio navigation also lists disabled Supabase products; those pages are not
 supported by this minimal deployment. Auth provider configuration remains in
 Compose/GoTrue environment variables, not the self-hosted dashboard.
+
+### SMTP and password flows
+
+Set these in the server's Git-ignored `deploy/supabase/.env`:
+
+```ini
+SMTP_HOST=smtp.your-provider.example
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_ADMIN_EMAIL=noreply@your-domain.example
+SMTP_SENDER_NAME=Hindsight
+SITE_URL=https://your-hindsight-host.example
+API_EXTERNAL_URL=https://your-supabase-host.example/auth/v1
+```
+
+Fill the credentials from your SMTP provider on the server. Do not put them in
+`NEXT_PUBLIC_*` variables or commit them. `SITE_URL` is the public Hindsight URL,
+not the Studio URL; omit a trailing slash and include Hindsight's base path if
+one is configured. Keep `API_EXTERNAL_URL` aligned with the public Auth gateway.
+Recreate Auth and the gateway after updating configuration:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.studio.yaml up -d --force-recreate auth gateway
+```
+
+Invitation and recovery templates in `volumes/auth/` are served internally by
+the gateway. They link directly to:
+
+```text
+<SITE_URL>/auth/set-password?token_hash=<one-time-token>&type=invite
+<SITE_URL>/auth/set-password?token_hash=<one-time-token>&type=recovery
+```
+
+Hindsight removes the token from the address bar and verifies it with Supabase
+only when the user submits their new password. Simply visiting a link does not
+accept it. Expired, reused, and invalid links show an error. A failed password
+update can be retried in the same page without consuming the invitation twice.
+Studio's **Send password recovery** action uses this same page. These pages use
+the public browser key and the user's own session; no admin key reaches Hindsight's
+browser. This does not add a self-service "Forgot password" request form.
+
+Signed-in users can select **Account → Change password** in the memory-area header, or
+visit `/account/change-password`. They must enter their current password and
+confirm the new password. GoTrue enforces the current-password check server-side;
+first-password setup and verified recovery sessions are exempt. Passwords must
+have at least 8 characters; any additional Supabase policy errors are shown by
+the form. `MAILER_AUTOCONFIRM=true` preserves offline local signup; set it to
+`false` if signup should require email confirmation.
+
+For local development, use the configured origin `http://localhost:9991` and
+start Next.js with `--hostname localhost`. Binding the dev server to `127.0.0.1`
+can make this Next.js version classify its normalized `localhost` locale rewrite
+as external, producing a redirect loop.
+
+For repeatable email/password integration testing, point GoTrue's SMTP host/port
+at a local Mailpit capture server and set a nonempty sender address. After
+installing the repository's npm workspace dependencies, run from this directory:
+
+```bash
+MAILPIT_URL=http://127.0.0.1:18025 node --env-file=.env test-password-flows.mjs
+```
+
+The test sends only to a uniquely named `@local.test` account, checks the actual
+email links against the running Hindsight page, verifies invitation replay
+rejection, tests the server's current-password checks, exercises recovery, and
+deletes its test account. It requires a running Hindsight UI and an Auth service
+configured to deliver into that mailbox. No real SMTP credentials are needed for
+this local test.
 
 ### Account deletion and existing sessions
 
