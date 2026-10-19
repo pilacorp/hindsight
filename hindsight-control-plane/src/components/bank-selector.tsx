@@ -8,6 +8,7 @@ import { useBank } from "@/lib/bank-context";
 import { bankRoute } from "@/lib/bank-url";
 import { hoistCurrentBank } from "@/lib/bank-order";
 import { withBasePath } from "@/lib/base-path";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { client } from "@/lib/api";
 import type { RetainContentBlock as ContentBlock } from "@/lib/api";
 import {
@@ -856,8 +857,10 @@ function BankSelectorInner() {
           className="h-9 w-9"
           title="Logout"
           onClick={async () => {
+            // Issue #10: the session lives in Supabase (client-side), so signing
+            // out means clearing that session, not deleting a server cookie.
             try {
-              await fetch(withBasePath("/api/auth/logout"), { method: "POST" });
+              await getSupabaseBrowserClient().auth.signOut();
             } finally {
               window.location.href = withBasePath("/login");
             }

@@ -6,6 +6,67 @@
 import { toast } from "sonner";
 import { bankApi, bankStatsApi, chunkApi, documentApi, memoryApi } from "./bank-url";
 import { stripBasePath, withBasePath } from "./base-path";
+import { getSupabaseBrowserClient } from "./supabase/client";
+
+/**
+ * Fetch an /api route with the current Supabase access token attached (issue
+ * #10). On a 401 we refresh the Supabase session once and retry — tokens are
+ * short-lived, so a mid-session expiry should be invisible. A still-401 after
+ * refresh means the session is truly gone; the caller handles the redirect.
+ */
+export async function authedFetch(path: string, options?: RequestInit): Promise<Response> {
+  // Tolerate the Supabase client being unavailable (unconfigured env, or a test
+  // that stubs fetch): send without a token and let the dataplane answer 401,
+  // which the caller turns into a sign-in redirect.
+  const supabase = (() => {
+    try {
+      return getSupabaseBrowserClient();
+    } catch {
+      return null;
+    }
+  })();
+  const send = async () => {
+    const token = supabase
+      ? (await supabase.auth.getSession()).data.session?.access_token
+      : undefined;
+    const headers = new Headers(options?.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return fetch(withBasePath(path), { ...options, headers });
+  };
+  let response = await send();
+  if (response.status === 401 && supabase) {
+    const { data } = await supabase.auth.refreshSession();
+    if (data.session) response = await send();
+  }
+  return response;
+}
+
+/**
+ * Download an authed /api resource as a file. A browser-native navigation or an
+ * `<a download>` click sends no Authorization header, and since issue #10 moved
+ * auth to a per-request bearer token, such a request is rejected with 401. So
+ * fetch the bytes with the token attached (via authedFetch) and save the blob.
+ * Returns false (and toasts) when the request fails.
+ */
+export async function downloadAuthed(path: string, filename: string): Promise<boolean> {
+  const response = await authedFetch(path);
+  if (!response.ok) {
+    toast.error("Download failed", { description: `HTTP ${response.status}`, duration: 5000 });
+    return false;
+  }
+  const url = URL.createObjectURL(await response.blob());
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  return true;
+}
 
 /**
  * Reduce an API error `details` value to a string safe to render in a toast.
@@ -429,7 +490,7 @@ export class ControlPlaneClient {
     { suppressErrorToast = false }: { suppressErrorToast?: boolean } = {}
   ): Promise<T> {
     try {
-      const response = await fetch(withBasePath(path), {
+      const response = await authedFetch(path, {
         ...options,
         headers: {
           "Content-Type": "application/json",
@@ -442,6 +503,14 @@ export class ControlPlaneClient {
         // Redirect to login on 401 (session expired or not authenticated)
         const currentPath = stripBasePath(`${window.location.pathname}${window.location.search}`);
         if (response.status === 401 && !currentPath.startsWith("/login")) {
+          // Supabase session is gone and could not be refreshed: clear it and
+          // send the developer back to sign in. (Guard the client in case env is
+          // unset or we're in a test harness.)
+          try {
+            await getSupabaseBrowserClient().auth.signOut();
+          } catch {
+            // nothing to clear
+          }
           window.location.href = withBasePath(`/login?returnTo=${encodeURIComponent(currentPath)}`);
           throw new Error("Unauthorized");
         }
@@ -2059,7 +2128,7 @@ export class ControlPlaneClient {
     if (includeObservations) params.set("include_observations", "true");
     if (includeKnowledgeBase) params.set("include_knowledge_base", "true");
     // Direct fetch (not fetchApi) because the response is a binary zip, not JSON.
-    const response = await fetch(withBasePath(`/api/documents/transfer?${params.toString()}`));
+    const response = await authedFetch(`/api/documents/transfer?${params.toString()}`);
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
       try {
@@ -2089,7 +2158,7 @@ export class ControlPlaneClient {
     formData.append("file", zipFile);
     const params = new URLSearchParams({ bank_id: bankId, on_conflict: onConflict });
     // Direct fetch for multipart/form-data; browser sets the boundary header.
-    const response = await fetch(withBasePath(`/api/documents/transfer?${params.toString()}`), {
+    const response = await authedFetch(`/api/documents/transfer?${params.toString()}`, {
       method: "POST",
       body: formData,
     });
@@ -2145,7 +2214,7 @@ export class ControlPlaneClient {
     formData.append("request", JSON.stringify(requestData));
 
     // Use fetch directly for multipart/form-data
-    const response = await fetch(withBasePath("/api/files/retain"), {
+    const response = await authedFetch("/api/files/retain", {
       method: "POST",
       body: formData,
       // Don't set Content-Type - browser will set it with boundary

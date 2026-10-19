@@ -8,11 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { sanitizeReturnTo, withBasePath } from "@/lib/base-path";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import Image from "next/image";
 
+// Issue #10: identity is the internal Supabase Auth. The dashboard no longer
+// accepts a Hindsight API key; a developer signs in with their Supabase email
+// and password, and supabase-js then forwards that session's access token on
+// every memory-bank request.
 function LoginForm() {
   const t = useTranslations("login");
-  const [key, setKey] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -22,31 +28,24 @@ function LoginForm() {
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   useEffect(() => {
-    // Focus the input on mount
-    const input = document.getElementById("access-key");
-    input?.focus();
+    document.getElementById("email")?.focus();
   }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
-      const res = await fetch(withBasePath("/api/auth/login"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
+      const { error: signInError } = await getSupabaseBrowserClient().auth.signInWithPassword({
+        email,
+        password,
       });
-
-      if (res.ok) {
-        // Navigate to the returnTo URL
-        router.push(returnTo);
-        router.refresh();
-      } else {
-        const data = await res.json().catch(() => null);
-        setError(data?.error || t("invalidKey"));
+      if (signInError) {
+        setError(signInError.message || t("invalidKey"));
+        return;
       }
+      router.push(returnTo);
+      router.refresh();
     } catch {
       setError(t("connectFailed"));
     } finally {
@@ -73,20 +72,24 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Input
-                id="access-key"
-                type="password"
-                placeholder={t("accessKeyPlaceholder")}
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-            <Button type="submit" className="w-full" disabled={loading || !key}>
+            <Button type="submit" className="w-full" disabled={loading || !email || !password}>
               {loading ? t("signingIn") : t("signIn")}
             </Button>
           </form>

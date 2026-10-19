@@ -17,8 +17,9 @@
  * without it every attachment has to be guessed at as an image.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, ImageOff } from "lucide-react";
+import { authedFetch } from "@/lib/api";
 
 /** Matches an attachment placeholder and captures its short id. */
 const PLACEHOLDER_RE = /⟦hs-att:([0-9a-f]{12})⟧/g;
@@ -55,6 +56,44 @@ function attachmentUrl(bankId: string, attachment: RetainedAttachment): string {
   return `/api/banks/${encodeURIComponent(bankId)}/attachments/${attachment.id}`;
 }
 
+/**
+ * Fetch an attachment into a blob object URL usable as an `<img src>` / `<a href>`.
+ *
+ * The proxy route requires the Supabase bearer token (issue #10), but a browser
+ * loading `<img src="/api/...">` or following a link sends no Authorization
+ * header, so the request 401s. Fetch the bytes with the token attached instead
+ * and hand the element a `blob:` URL. The URL is revoked on unmount; `failed`
+ * lets the caller fall back to an "unavailable" note.
+ */
+function useAuthedObjectUrl(path: string): { url: string | null; failed: boolean } {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setUrl(null);
+    setFailed(false);
+    authedFetch(path)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [path]);
+  return { url, failed };
+}
+
 function Unavailable({ label }: { label: string }) {
   // The bytes can legitimately be gone — reclaimed, or a storage backend swapped
   // under an old document. Say so where it belonged rather than leaving a silent
@@ -68,6 +107,7 @@ function Unavailable({ label }: { label: string }) {
 }
 
 function FileCard({ bankId, attachment }: { bankId: string; attachment: RetainedAttachment }) {
+  const { url } = useAuthedObjectUrl(attachmentUrl(bankId, attachment));
   const name = attachment.filename || attachment.media_type || "attachment";
   const detail = [
     attachment.filename ? attachment.media_type : null,
@@ -77,7 +117,7 @@ function FileCard({ bankId, attachment }: { bankId: string; attachment: Retained
     .join(" · ");
   return (
     <a
-      href={attachmentUrl(bankId, attachment)}
+      href={url ?? undefined}
       target="_blank"
       rel="noreferrer"
       className="inline-flex items-center gap-1.5 my-1.5 px-2 py-1 rounded border border-border bg-muted/40 hover:bg-muted transition-colors no-underline max-w-[280px] align-middle"
@@ -94,22 +134,21 @@ function FileCard({ bankId, attachment }: { bankId: string; attachment: Retained
 }
 
 function InlineImage({ bankId, attachment }: { bankId: string; attachment: RetainedAttachment }) {
-  const [failed, setFailed] = useState(false);
+  const { url: href, failed } = useAuthedObjectUrl(attachmentUrl(bankId, attachment));
   if (failed) return <Unavailable label={`image unavailable (${attachment.id})`} />;
-  const href = attachmentUrl(bankId, attachment);
+  if (!href) return <Unavailable label={`loading image (${attachment.id})`} />;
   return (
     // Wrapped in a link so the inline preview is also the way to open the full
     // image — it is shown scaled down to sit in a document body, and a reader
     // who wants to actually see the screenshot has to be able to click it.
     <a href={href} target="_blank" rel="noreferrer" className="inline-block">
-      {/* A plain <img> rather than next/image: the bytes are proxied from the
-          dataplane at request time behind server-side auth, so there is no URL
-          for the image optimizer to pre-resolve. */}
+      {/* A plain <img> rather than next/image: the bytes are fetched from the
+          proxy with the bearer token into a blob: URL (see useAuthedObjectUrl),
+          so there is no URL for the image optimizer to pre-resolve. */}
       <img
         src={href}
         alt={attachment.filename || "Retained inline attachment"}
         title={attachment.filename || attachment.media_type}
-        onError={() => setFailed(true)}
         // Small on purpose: these sit inside a document body or beside a fact,
         // where a full-width screenshot pushes the text it belongs to off the
         // screen. Click opens the original at full size.

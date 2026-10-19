@@ -23,7 +23,9 @@ vi.mock("@/lib/bank-context", () => ({
 }));
 
 const getMemory = vi.fn();
+const authedFetch = vi.fn();
 vi.mock("@/lib/api", () => ({
+  authedFetch: (...args: unknown[]) => authedFetch(...args),
   client: {
     getMemory: (...args: unknown[]) => getMemory(...args),
     getChunk: vi.fn().mockResolvedValue(null),
@@ -35,6 +37,8 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import { MemoryDetailModal } from "@/components/memory-detail-modal";
+
+const BLOB_URL = "blob:mock-object-url";
 
 const ATTACHMENT = {
   id: "c414cd0e204d",
@@ -58,7 +62,13 @@ function memoryOfType(type: string) {
   };
 }
 
-beforeEach(() => getMemory.mockReset());
+beforeEach(() => {
+  getMemory.mockReset();
+  authedFetch.mockReset();
+  authedFetch.mockResolvedValue({ ok: true, blob: async () => new Blob(["bytes"]) });
+  globalThis.URL.createObjectURL = vi.fn(() => BLOB_URL);
+  globalThis.URL.revokeObjectURL = vi.fn();
+});
 afterEach(cleanup);
 
 describe("memory dialog attachments", () => {
@@ -70,7 +80,9 @@ describe("memory dialog attachments", () => {
 
     await waitFor(() => expect(getMemory).toHaveBeenCalled());
     const image = await screen.findByRole("img");
-    expect(image.getAttribute("src")).toBe(`/api/banks/bank-a/attachments/${ATTACHMENT.id}`);
+    // Fetched with the bearer token and shown as a blob: URL (issue #10).
+    expect(image.getAttribute("src")).toBe(BLOB_URL);
+    expect(authedFetch).toHaveBeenCalledWith(`/api/banks/bank-a/attachments/${ATTACHMENT.id}`);
   });
 
   it("renders nothing extra for a memory with no attachments", async () => {

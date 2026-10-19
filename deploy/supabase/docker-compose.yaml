@@ -1,0 +1,104 @@
+# Self-hosted open-source Supabase — minimal stack for NDA Hindsight (#10).
+#
+# Only the pieces Hindsight needs: Postgres (its database, with `vector`),
+# GoTrue Auth (identity + JWTs), and a thin nginx gateway exposing /auth/v1/* so
+# the dashboard's supabase-js and the tenant extension reach a single API URL.
+# Dropped vs the full upstream stack: PostgREST, Realtime, Storage, imgproxy,
+# Edge Functions, Studio, pooler — Hindsight uses none of them.
+#
+# Images + init scripts are pinned from supabase/supabase docker/ (master).
+# Demo keys in .env.example are HS256 and for LOCAL DEV ONLY.
+
+name: nda-supabase
+
+services:
+  db:
+    image: supabase/postgres:17.6.1.136
+    container_name: nda-supabase-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      # Read from a mounted secret file, not the environment, so the DB
+      # superuser password stays out of `docker compose config` and
+      # `docker inspect` (the supabase/postgres entrypoint honours *_FILE).
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      JWT_EXP: ${JWT_EXPIRY:-3600}
+    secrets:
+      - postgres_password
+    volumes:
+      # The supabase/postgres image pre-creates the Supabase roles; these set
+      # their passwords and the jwt_exp setting. Applied once on first init.
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      - ./volumes/db/dev-auth-admin.sql:/docker-entrypoint-initdb.d/init-scripts/99-dev-auth-admin.sql:Z
+      - supabase-db-data:/var/lib/postgresql/data:Z
+    ports:
+      # Host port for Hindsight's HINDSIGHT_API_DATABASE_URL and local psql.
+      - "${POSTGRES_PUBLISH_PORT:-54322}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    image: supabase/gotrue:v2.196.0
+    container_name: nda-supabase-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000/auth/v1}
+      GOTRUE_DB_DRIVER: postgres
+      # supabase_auth_admin has search_path=auth (so GoTrue's unqualified table
+      # refs resolve); dev-auth-admin.sql makes it superuser so its migration can
+      # CREATE OR REPLACE the auth.uid()/role()/email() functions the image ships
+      # owned by postgres.
+      # GoTrue has no *_FILE support and needs the password inside this URL, so it
+      # is interpolated here (local-dev residual — front production with a real
+      # secrets manager, as the README says).
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:9991}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY:-3600}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:?set in .env}
+      GOTRUE_JWT_ISSUER: ${API_EXTERNAL_URL:-http://localhost:8000/auth/v1}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      # No SMTP in local dev: auto-confirm sign-ups so email+password works offline.
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: nda-supabase-gateway
+    restart: unless-stopped
+    depends_on:
+      auth:
+        condition: service_healthy
+    volumes:
+      - ./volumes/api/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      # The single Supabase API URL. /auth/v1/* -> GoTrue.
+      - "${SUPABASE_PUBLISH_PORT:-8000}:8000"
+
+secrets:
+  # Sourced from the POSTGRES_PASSWORD var in your .env and mounted as a file;
+  # Compose never writes its value into the resolved config or container env.
+  postgres_password:
+    environment: POSTGRES_PASSWORD
+
+volumes:
+  supabase-db-data:

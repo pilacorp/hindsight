@@ -127,6 +127,12 @@ COPY --from=sdk-builder /app/hindsight-clients/typescript ./node_modules/@vector
 # Usage: docker build --build-arg NEXT_PUBLIC_BASE_PATH=/hindsight ...
 ARG NEXT_PUBLIC_BASE_PATH=""
 
+# Supabase sign-in (nda #10): NEXT_PUBLIC_* are inlined by `next build`, so the
+# browser Supabase client needs them here, not only at runtime. The anon key is
+# public by design. Usage: docker build --build-arg NEXT_PUBLIC_SUPABASE_URL=...
+ARG NEXT_PUBLIC_SUPABASE_URL=""
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=""
+
 # Build Control Plane - run next build first, then custom standalone copy
 # (The build:standalone script expects a specific path structure that differs in Docker)
 RUN npm exec -- next build
