@@ -77,6 +77,7 @@ button{{padding:10px;border-radius:8px;border:0;background:#4f46e5;color:#fff;fo
 <input type=hidden name=redirect_uri value="{redirect_uri}">
 <input type=hidden name=state value="{state}">
 <input type=hidden name=code_challenge value="{code_challenge}">
+<input type=hidden name=code_challenge_method value="S256">
 <button type=submit>Sign in</button>
 </form></body></html>"""
 
@@ -163,7 +164,7 @@ class NdaOAuthExtension(HttpExtension):
             q = request.query_params
             if not _valid(q.get("client_id", ""), q.get("redirect_uri", "")):
                 return HTMLResponse("invalid client_id or redirect_uri", status_code=400)
-            if q.get("code_challenge_method", "S256") != "S256":
+            if q.get("code_challenge_method") != "S256":
                 return HTMLResponse("code_challenge_method must be S256", status_code=400)
             if not q.get("code_challenge"):
                 return HTMLResponse("code_challenge required (PKCE)", status_code=400)
@@ -177,6 +178,11 @@ class NdaOAuthExtension(HttpExtension):
             client_id, redirect_uri = form.get("client_id", ""), form.get("redirect_uri", "")
             if not _valid(client_id, redirect_uri):
                 return JSONResponse({"error": "invalid client_id or redirect_uri"}, status_code=400)
+            # Direct form submissions must not bypass the GET's method check.
+            if form.get("code_challenge_method") != "S256":
+                return JSONResponse(
+                    {"error": "invalid_request", "error_description": "code_challenge_method must be S256"},
+                    status_code=400)
             # PKCE is mandatory: never mint a code without a challenge to bind it
             # to, or the token endpoint has nothing to check the verifier against.
             # The form POST is reachable directly, so enforce it here, not only on

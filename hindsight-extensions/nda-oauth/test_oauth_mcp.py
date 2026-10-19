@@ -77,7 +77,7 @@ def main():
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     s, b, h = _req("POST", f"{API}/ext/oauth/authorize",
                    {"email": EMAIL, "password": PASSWORD, "client_id": cid, "redirect_uri": REDIRECT,
-                    "code_challenge": challenge, "state": "st"},
+                    "code_challenge": challenge, "code_challenge_method": "S256", "state": "st"},
                    {"Content-Type": "application/x-www-form-urlencoded"}, follow=False)
     code = urllib.parse.parse_qs(urllib.parse.urlparse(h.get("Location", "")).query).get("code", [""])[0]
     check("authorize -> code (Supabase login)", s == 302 and bool(code))
