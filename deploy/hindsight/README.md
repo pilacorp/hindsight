@@ -51,17 +51,19 @@ HS256 and no service key is set.
 
 ## Use
 
-| Surface | URL |
-| --- | --- |
-| Dashboard | `http://127.0.0.1:9991` — sign in with a Supabase email + password |
-| REST API | `http://127.0.0.1:8891/v1/default/banks/...` with `Authorization: Bearer <supabase_jwt>` |
+| Surface          | URL                                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard        | `http://127.0.0.1:9991` — sign in with a Supabase email + password                                                            |
+| REST API         | `http://127.0.0.1:8891/v1/default/banks/...` with `Authorization: Bearer <supabase_jwt>`                                      |
 | MCP (multi-bank) | `http://127.0.0.1:8891/mcp/` with `Authorization: Bearer <supabase_jwt>`; pick the bank per call via the tools' `bank_id` arg |
 
 - The dashboard, REST, MCP, and the CLI all authenticate with the **same**
   Supabase user, so they reach the same `user_<uuid>` schema. No Hindsight key.
 - A new Supabase user needs no restart; their schema is created on first call.
 - User management (create/disable/delete) is done in Supabase, not here. There
-  is no Hindsight admin UI.
+  is no Hindsight admin UI. For the local minimal stack, enable the optional
+  [Supabase Studio account administration](../supabase/README.md#optional-studio-account-administration)
+  dashboard; its administrator login is separate from Hindsight sign-in.
 
 ## Cutover from #3 and rollback
 
