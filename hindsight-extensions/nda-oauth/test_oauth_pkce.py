@@ -36,7 +36,9 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(
         extension,
         "_supabase_token",
-        AsyncMock(return_value=(200, {"access_token": "test-access", "refresh_token": "test-refresh"})),
+        AsyncMock(return_value=(200, {
+            "access_token": "test-access", "refresh_token": "test-refresh", "expires_in": 3600,
+        })),
     )
     app = FastAPI()
     app.include_router(extension.get_router(None), prefix="/ext")
@@ -64,7 +66,11 @@ def test_authorize_requires_explicit_s256(
     assert response.status_code == 400
 
 
-def test_login_form_preserves_s256_for_code_exchange(client: TestClient, authorization: dict[str, str]) -> None:
+@pytest.mark.parametrize("exchange_delay", [0, 30])
+def test_login_form_preserves_s256_for_code_exchange(
+    client: TestClient, authorization: dict[str, str], monkeypatch: pytest.MonkeyPatch, exchange_delay: int
+) -> None:
+    monkeypatch.setattr("nda_oauth.extension.time.time", lambda: 1000)
     response = client.get("/ext/oauth/authorize", params={**authorization, "code_challenge_method": "S256"})
     assert response.status_code == 200
     form = HiddenInputs()
@@ -78,6 +84,7 @@ def test_login_form_preserves_s256_for_code_exchange(client: TestClient, authori
     )
     assert response.status_code == 302
     code = parse_qs(urlparse(response.headers["location"]).query)["code"][0]
+    monkeypatch.setattr("nda_oauth.extension.time.time", lambda: 1000 + exchange_delay)
     response = client.post(
         "/ext/oauth/token",
         data={
@@ -89,4 +96,22 @@ def test_login_form_preserves_s256_for_code_exchange(client: TestClient, authori
         },
     )
     assert response.status_code == 200
-    assert response.json()["access_token"] == "test-access"
+    assert response.json() == {
+        "access_token": "test-access",
+        "token_type": "bearer",
+        "refresh_token": "test-refresh",
+        "expires_in": 3600 - exchange_delay,
+    }
+
+
+def test_refresh_returns_expiry_and_rotated_tokens(client: TestClient) -> None:
+    response = client.post(
+        "/ext/oauth/token", data={"grant_type": "refresh_token", "refresh_token": "previous-refresh"}
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "access_token": "test-access",
+        "token_type": "bearer",
+        "refresh_token": "test-refresh",
+        "expires_in": 3600,
+    }

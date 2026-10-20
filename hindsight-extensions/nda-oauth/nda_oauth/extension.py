@@ -205,6 +205,7 @@ class NdaOAuthExtension(HttpExtension):
                 "client_id": client_id, "redirect_uri": redirect_uri,
                 "challenge": challenge,
                 "supa_access": supa["access_token"], "supa_refresh": supa.get("refresh_token", ""),
+                "supa_expires_at": int(time.time()) + supa["expires_in"],
                 "exp": int(time.time()) + 120,
             }
             sep = "&" if "?" in redirect_uri else "?"
@@ -232,15 +233,17 @@ class NdaOAuthExtension(HttpExtension):
                     return JSONResponse({"error": "invalid_grant", "error_description": "PKCE"}, status_code=400)
                 # Pass-through: the Supabase access token IS the OAuth access token,
                 # so the agent calls Hindsight MCP directly and supabase-tenant verifies it.
+                # Account for the redirect delay; the access token was minted at login.
                 return {"access_token": entry["supa_access"], "token_type": "bearer",
-                        "refresh_token": entry["supa_refresh"]}
+                        "refresh_token": entry["supa_refresh"],
+                        "expires_in": max(0, entry["supa_expires_at"] - int(time.time()))}
             if grant == "refresh_token":
                 status, supa = await self._supabase_token(
                     "refresh_token", {"refresh_token": form.get("refresh_token", "")})
                 if status != 200 or "access_token" not in supa:
                     return JSONResponse({"error": "invalid_grant"}, status_code=400)
                 return {"access_token": supa["access_token"], "token_type": "bearer",
-                        "refresh_token": supa.get("refresh_token", "")}
+                        "refresh_token": supa.get("refresh_token", ""), "expires_in": supa["expires_in"]}
             return JSONResponse({"error": "unsupported_grant_type"}, status_code=400)
 
         return router
