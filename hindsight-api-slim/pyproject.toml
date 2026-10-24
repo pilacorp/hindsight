@@ -36,7 +36,7 @@ dependencies = [
     # Contained to engine/token_encoding.py — see that module for the rationale.
     "toktok-rs>=0.1.3", # 0.1.3 adds truncate()/batch_truncate()
     "httpx>=0.27.0",
-    "fastmcp>=3.2.0", # SSRF/path traversal, OAuth confused deputy, command injection fixes
+    "fastmcp>=3.4.10", # SSRF/path traversal, OAuth confused deputy, command injection fixes
     "python-dateutil>=2.8.0",
     # Two coupled reasons for these floors — keep all six pins moving together:
     # (1) opentelemetry-exporter-prometheus calls
