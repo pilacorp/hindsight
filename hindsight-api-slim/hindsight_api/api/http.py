@@ -5706,7 +5706,8 @@ def _register_routes(app: FastAPI):
         from hindsight_api.usage.http import UsageReadError, team_usage_payload
         from hindsight_api.usage.store import get_usage_store
 
-        extension_active = type(memory.tenant_extension).__name__ == "SupabaseTenantExtension"
+        extension = app.state.memory.tenant_extension
+        extension_active = type(extension).__name__ == "SupabaseTenantExtension"
 
         async def load():
             store = get_usage_store()

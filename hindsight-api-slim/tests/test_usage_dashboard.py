@@ -1,11 +1,13 @@
 """Public team usage dashboard. Planned cases from specs/usage-dashboard.md."""
 
 from datetime import date, datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from hindsight_api.api import create_app
 from hindsight_api.usage.http import UsageReadError, team_usage_payload
 from hindsight_api.usage.view import (
     DailyUsage,
@@ -204,3 +206,37 @@ def test_read_error_is_503_without_a_member_list(usage_client):
     response = usage_client.get("/v1/default/usage/team")
     assert response.status_code == 503
     assert "members" not in response.json()
+
+
+class SupabaseTenantExtension:
+    """Stands in for the real extension, which the route recognises by class name."""
+
+
+class _FakeUsageStore:
+    async def load_members_and_rows(self):
+        return await _two_members()
+
+
+@pytest.fixture
+def registered_app_client(monkeypatch):
+    """The real app's route, so the handler's own wiring is exercised, not a stand-in."""
+    monkeypatch.delenv("HINDSIGHT_API_HTTP_EXTENSION", raising=False)
+
+    def build(extension: object) -> TestClient:
+        memory = MagicMock()
+        memory.tenant_extension = extension
+        return TestClient(create_app(memory, initialize_memory=False))
+
+    return build
+
+
+def test_registered_route_serves_members_when_the_extension_is_active(registered_app_client, monkeypatch):
+    monkeypatch.setattr("hindsight_api.usage.store._STORE", _FakeUsageStore())
+    response = registered_app_client(SupabaseTenantExtension()).get("/v1/default/usage/team")
+    assert response.status_code == 200
+    assert [member["email"] for member in response.json()["members"]] == ["a@example.com", "b@example.com"]
+
+
+def test_registered_route_is_404_without_the_supabase_extension(registered_app_client):
+    response = registered_app_client(object()).get("/v1/default/usage/team")
+    assert response.status_code == 404
