@@ -76,3 +76,7 @@ hindsight-integrations/_drafts/
 
 blog-post*
 .worktrees/
+
+# Local NDA Harness memory and task records
+.nda-harness/profile.json
+.nda-harness/tasks/
