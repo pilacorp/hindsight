@@ -14,6 +14,11 @@ describe("memory provider scoping", () => {
     expect(isMemoryArea("/banks/personal")).toBe(true);
   });
 
+  it("keeps the public usage page out of the memory area", () => {
+    expect(isMemoryArea("/usage")).toBe(false);
+    expect(isMemoryArea("/usage?range=7d")).toBe(false);
+  });
+
   it("keeps invitation and password pages independent from memory authentication", () => {
     expect(isMemoryArea("/auth/set-password?token_hash=token&type=invite")).toBe(false);
     expect(isMemoryArea("/account/change-password")).toBe(false);

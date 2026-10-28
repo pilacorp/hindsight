@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "@/i18n/routing";
 import { stripBasePath } from "@/lib/base-path";
+import { apiAuthDecision } from "@/lib/public-api";
 
 // Issue #10: the Supabase session lives in the browser (supabase-js); the
 // browser forwards its access token as `Authorization: Bearer <jwt>` on every
@@ -12,17 +13,14 @@ import { stripBasePath } from "@/lib/base-path";
 // a sign-in redirect. Page routes are not gated (auth is enforced client-side).
 const intlMiddleware = createIntlMiddleware(routing);
 
-// /api routes reachable without a token.
-const PUBLIC_API = ["/api/version", "/api/health"];
-
 export function middleware(request: NextRequest) {
   const appPath = stripBasePath(request.nextUrl.pathname);
+  const decision = apiAuthDecision(appPath, request.headers.get("authorization"));
 
-  if (appPath.startsWith("/api/")) {
-    const isPublic = PUBLIC_API.some((p) => appPath === p || appPath.startsWith(p + "/"));
-    if (!isPublic && !request.headers.get("authorization")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (decision === "unauthorized") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (decision === "allow") {
     return;
   }
 

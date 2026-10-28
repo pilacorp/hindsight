@@ -5700,6 +5700,23 @@ def _register_routes(app: FastAPI):
         """
         return liveness_response()
 
+    @app.get("/v1/default/usage/team", include_in_schema=False)
+    async def usage_team_endpoint(range: str | None = None):
+        """Public team usage. No credentials. Counts and emails only."""
+        from hindsight_api.usage.http import UsageReadError, team_usage_payload
+        from hindsight_api.usage.store import get_usage_store
+
+        extension = app.state.memory.tenant_extension
+        extension_active = type(extension).__name__ == "SupabaseTenantExtension"
+
+        async def load():
+            store = get_usage_store()
+            if store is None:
+                raise UsageReadError("usage store is not ready")
+            return await store.load_members_and_rows()
+
+        return await team_usage_payload(range_value=range, extension_active=extension_active, load=load)
+
     @app.get(
         "/version",
         response_model=VersionResponse,

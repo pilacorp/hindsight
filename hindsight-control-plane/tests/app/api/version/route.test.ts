@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "@/app/api/version/route";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 describe("GET /api/version (public, session-free)", () => {
   it("returns 200 and per_user_auth without a session", async () => {
-    process.env.HINDSIGHT_CP_SESSION_SECRET = "x";
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ version: "1.0.0", features: {} }), { status: 200 }))

@@ -5985,6 +5985,15 @@ class MemoryEngine(MemoryEngineInterface):
         # These will be migrated to use self._backend.acquire() over time.
         self._pool = self._backend.get_pool()
 
+        if type(self._tenant_extension).__name__ == "SupabaseTenantExtension":
+            from hindsight_api.usage.store import bind_usage_store
+
+            store = bind_usage_store(self._pool)
+            try:
+                await store.ensure_schema()
+            except Exception:
+                logger.exception("Usage ledger setup failed; team usage reads will report unavailable")
+
         if self._read_database_url:
             logger.info(
                 f"Opening read backend against {mask_network_location(self._read_database_url)} for recall queries"

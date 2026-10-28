@@ -371,8 +371,20 @@ class NoOpMetricsCollector(MetricsCollectorBase):
         budget: str | None = None,
         max_tokens: int | None = None,
     ):
-        """No-op context manager."""
-        yield
+        """No-op for metrics. Still notes team usage, which does not depend on Prometheus."""
+        success = True
+        cancelled = False
+        try:
+            yield
+        except Exception as exc:
+            if _is_client_cancellation(exc):
+                cancelled = True
+            else:
+                success = False
+            raise
+        finally:
+            if not cancelled:
+                self.record_operation_result(operation, bank_id, success, 0.0, source, budget, max_tokens)
 
     def record_operation_result(
         self,
@@ -385,8 +397,10 @@ class NoOpMetricsCollector(MetricsCollectorBase):
         max_tokens: int | None = None,
         memories_backend: str | None = None,
     ):
-        """No-op operation result recording."""
-        pass
+        """No-op operation result recording. Still notes team usage."""
+        from hindsight_api.usage.record import note_current_operation
+
+        note_current_operation(operation, success, cancelled=False)
 
     def record_llm_call(
         self,
@@ -400,8 +414,10 @@ class NoOpMetricsCollector(MetricsCollectorBase):
         cached_input_tokens: int = 0,
         thoughts_tokens: int = 0,
     ):
-        """No-op LLM call recording."""
-        pass
+        """No-op for metrics. Token totals for team usage are still recorded."""
+        from hindsight_api.usage.record import note_current_tokens
+
+        note_current_tokens(input_tokens, output_tokens, cached_input_tokens)
 
     @contextmanager
     def record_http_request(self, method: str, endpoint: str, status_code_getter: Callable[[], int]):
@@ -759,6 +775,9 @@ class MetricsCollector(MetricsCollectorBase):
 
         # Record operation count
         self.operation_total.add(1, attributes)
+        from hindsight_api.usage.record import note_current_operation
+
+        note_current_operation(operation, success, cancelled=False)
 
     def record_retain_document(self, bank_id: str, memory_unit_count: int):
         """Record one document's retain outcome.
@@ -847,6 +866,10 @@ class MetricsCollector(MetricsCollectorBase):
                 thoughts_tokens,
                 {**base_attributes, "token_bucket": get_token_bucket(thoughts_tokens)},
             )
+
+        from hindsight_api.usage.record import note_current_tokens
+
+        note_current_tokens(input_tokens, output_tokens, cached_input_tokens)
 
     @contextmanager
     def record_http_request(self, method: str, endpoint: str, status_code_getter: Callable[[], int]):
