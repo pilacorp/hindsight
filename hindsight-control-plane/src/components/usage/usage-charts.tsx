@@ -63,7 +63,11 @@ type TooltipProps = Partial<TooltipContentProps<number, string>> & {
 function ChartTooltip({ active, payload, label, extraRows }: TooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
   const rows: TooltipRow[] = [
-    ...payload,
+    ...payload.map((entry) => ({
+      name: entry.name == null ? undefined : String(entry.name),
+      value: Number(entry.value ?? 0),
+      color: entry.color,
+    })),
     ...(extraRows ? extraRows(payload[0].payload as Record<string, number>) : []),
   ];
   return (
