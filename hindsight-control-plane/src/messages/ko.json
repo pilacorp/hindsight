@@ -1938,7 +1938,8 @@
     "signIn": "로그인",
     "signingIn": "로그인 중...",
     "invalidKey": "유효하지 않은 액세스 키",
-    "connectFailed": "서버에 연결할 수 없습니다"
+    "connectFailed": "서버에 연결할 수 없습니다",
+    "teamUsage": "Team usage"
   },
   "api": {
     "errors": {
@@ -2253,5 +2254,30 @@
     "title": "계정",
     "signedInAs": "로그인한 사용자",
     "logout": "로그아웃"
+  },
+  "usage": {
+    "title": "Team usage",
+    "rangeToday": "Today",
+    "range7d": "7 days",
+    "range30d": "30 days",
+    "team": "Team",
+    "activity": "Activity",
+    "retain": "Retain",
+    "recall": "Recall",
+    "reflect": "Reflect",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "tokens": "Tokens",
+    "input": "Input",
+    "output": "Output",
+    "cached": "Cached input",
+    "stored": "Stored",
+    "banks": "Banks",
+    "documents": "Documents",
+    "memoryUnits": "Memory units",
+    "daily": "Daily",
+    "snapshot": "Footprint snapshot: {time}",
+    "notEnabled": "Team usage is not enabled.",
+    "unavailable": "Team usage is unavailable."
   }
 }

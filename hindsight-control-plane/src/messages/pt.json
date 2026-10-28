@@ -1938,7 +1938,8 @@
     "signIn": "Entrar",
     "signingIn": "Entrando...",
     "invalidKey": "Chave de acesso inválida",
-    "connectFailed": "Falha ao conectar ao servidor"
+    "connectFailed": "Falha ao conectar ao servidor",
+    "teamUsage": "Team usage"
   },
   "api": {
     "errors": {
@@ -2253,5 +2254,30 @@
     "title": "Conta",
     "signedInAs": "Sessão iniciada como",
     "logout": "Sair"
+  },
+  "usage": {
+    "title": "Team usage",
+    "rangeToday": "Today",
+    "range7d": "7 days",
+    "range30d": "30 days",
+    "team": "Team",
+    "activity": "Activity",
+    "retain": "Retain",
+    "recall": "Recall",
+    "reflect": "Reflect",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "tokens": "Tokens",
+    "input": "Input",
+    "output": "Output",
+    "cached": "Cached input",
+    "stored": "Stored",
+    "banks": "Banks",
+    "documents": "Documents",
+    "memoryUnits": "Memory units",
+    "daily": "Daily",
+    "snapshot": "Footprint snapshot: {time}",
+    "notEnabled": "Team usage is not enabled.",
+    "unavailable": "Team usage is unavailable."
   }
 }

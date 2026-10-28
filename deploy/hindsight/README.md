@@ -54,6 +54,7 @@ HS256 and no service key is set.
 | Surface          | URL                                                                                                                           |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard        | `http://127.0.0.1:9991` — sign in with a Supabase email + password                                                            |
+| Team usage       | `http://127.0.0.1:9991/usage` — public, no sign-in. Shows this team's memory usage and each member's email                     |
 | REST API         | `http://127.0.0.1:8891/v1/default/banks/...` with `Authorization: Bearer <supabase_jwt>`                                      |
 | MCP (multi-bank) | `http://127.0.0.1:8891/mcp/` with `Authorization: Bearer <supabase_jwt>`; pick the bank per call via the tools' `bank_id` arg |
 
@@ -68,6 +69,13 @@ HS256 and no service key is set.
   Signed-in users can choose **Account → Change password** in the header or visit
   `/account/change-password`. Configure the SMTP relay and public app URL using
   the [Supabase deployment instructions](../supabase/README.md#smtp-and-password-flows).
+- `/usage` is public. It publishes each current account's email plus usage counts
+  (retain, recall, reflect, tokens, and stored footprint). It does not publish
+  memory content. The API role needs `SELECT` on `auth.users (id, email)` only:
+
+  ```sql
+  GRANT SELECT (id, email) ON auth.users TO <hindsight_api_role>;
+  ```
 
 ## Cutover from #3 and rollback
 

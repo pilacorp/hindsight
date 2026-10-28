@@ -92,6 +92,9 @@ function LoginForm() {
             <Button type="submit" className="w-full" disabled={loading || !email || !password}>
               {loading ? t("signingIn") : t("signIn")}
             </Button>
+            <a href={withBasePath("/usage")} className="block text-center text-sm text-primary underline">
+              {t("teamUsage")}
+            </a>
           </form>
         </CardContent>
       </Card>

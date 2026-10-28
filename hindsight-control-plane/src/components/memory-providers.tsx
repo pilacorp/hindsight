@@ -10,7 +10,7 @@ import { stripBasePath } from "@/lib/base-path";
 // session must not interrupt invitation acceptance or password changes.
 export function isMemoryArea(pathname: string): boolean {
   const path = stripBasePath(pathname || "/").split(/[?#]/)[0];
-  return !["/login", "/auth", "/account"].some(
+  return !["/login", "/auth", "/account", "/usage"].some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`)
   );
 }

@@ -136,7 +136,7 @@ class MaintenanceLoop:
         if _is_oracle():
             logger.debug("Maintenance loop not started: PostgreSQL-only")
             return
-        if not self._any_job_enabled():
+        if not self._any_job_enabled() and not self._usage_snapshot_enabled():
             logger.debug("Maintenance loop not started: no jobs enabled")
             return
         self._stop.clear()
@@ -231,6 +231,27 @@ class MaintenanceLoop:
             and self._is_due("operation_cleanup", cleanup_interval)
         ):
             await self._run_timed("operation cleanup", self._run_operation_cleanup(cfg))
+        if self._usage_snapshot_enabled() and self._is_due("usage_snapshot", 3600):
+            await self._run_timed("usage snapshot", self._snapshot_usage())
+
+    def _usage_snapshot_enabled(self) -> bool:
+        engine = self._engine
+        if engine is None:
+            return False
+        extension = engine.tenant_extension
+        return extension is not None and type(extension).__name__ == "SupabaseTenantExtension"
+
+    async def _snapshot_usage(self) -> None:
+        from hindsight_api.usage.store import get_usage_store
+
+        store = get_usage_store()
+        if store is None or self._engine is None:
+            return
+        prefix = getattr(self._engine.tenant_extension, "schema_prefix", "user")
+        try:
+            await store.snapshot_footprints(prefix)
+        except Exception:
+            logger.exception("Usage footprint snapshot failed")
 
     async def _run_timed(self, name: str, coro: Coroutine[Any, Any, None]) -> None:
         """Run a maintenance job and emit one timing line for it.
