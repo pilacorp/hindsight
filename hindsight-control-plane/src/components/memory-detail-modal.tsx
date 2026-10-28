@@ -264,7 +264,12 @@ export function MemoryDetailModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        {/* The body is the memory itself, so there is no separate description.
+            Radix warns unless that is stated explicitly. */}
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+        >
           <DialogHeader>
             <DialogTitle>{memory ? getMemoryTypeTitle() : t("defaultTitle")}</DialogTitle>
           </DialogHeader>

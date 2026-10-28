@@ -1,6 +1,20 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { formatWatermark } from "@/lib/relative-time";
+
+// The fixtures are UTC instants. "Today" is the machine's calendar day, so an
+// unpinned zone (CI is UTC; this machine is not) moves 18:00Z onto the next day
+// and the same-day clock branch never runs.
+const originalTz = process.env.TZ;
+
+beforeAll(() => {
+  process.env.TZ = "UTC";
+});
+
+afterAll(() => {
+  if (originalTz === undefined) delete process.env.TZ;
+  else process.env.TZ = originalTz;
+});
 
 afterEach(() => {
   vi.useRealTimers();
