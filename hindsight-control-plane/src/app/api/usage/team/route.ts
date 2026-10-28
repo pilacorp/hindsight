@@ -10,7 +10,9 @@ export async function GET(request: Request) {
   const range = new URL(request.url).searchParams.get("range");
   const query = range ? `?range=${encodeURIComponent(range)}` : "";
   try {
-    const res = await fetch(`${DATAPLANE_URL}/v1/default/usage/team${query}`, { cache: "no-store" });
+    const res = await fetch(`${DATAPLANE_URL}/v1/default/usage/team${query}`, {
+      cache: "no-store",
+    });
     const body = await res.text();
     return new NextResponse(body, {
       status: res.status,

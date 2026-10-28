@@ -6,7 +6,10 @@ export function isPublicApiPath(appPath: string): boolean {
 }
 
 /** How middleware treats a path before any session lookup. */
-export function apiAuthDecision(appPath: string, authorization: string | null): "allow" | "unauthorized" | "page" {
+export function apiAuthDecision(
+  appPath: string,
+  authorization: string | null
+): "allow" | "unauthorized" | "page" {
   if (!appPath.startsWith("/api/")) return "page";
   if (isPublicApiPath(appPath) || authorization) return "allow";
   return "unauthorized";
