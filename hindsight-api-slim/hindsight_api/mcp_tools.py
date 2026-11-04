@@ -26,7 +26,7 @@ from hindsight_api.engine.audit import AuditEntry, AuditLogger
 from hindsight_api.engine.memory_engine import KEEP_PARENT, Budget
 from hindsight_api.engine.response_models import VALID_RECALL_FACT_TYPES, MinScores, TemporalWindow
 from hindsight_api.engine.search.tags import TagGroup, TagsMatch
-from hindsight_api.extensions import OperationValidationError
+from hindsight_api.extensions import AuthenticationError, OperationValidationError
 from hindsight_api.models import RequestContext
 
 _TAG_GROUP_LIST_ADAPTER = TypeAdapter(list[TagGroup])
@@ -333,6 +333,22 @@ class MCPToolsConfig:
     # Retain behavior
 
 
+def _reraise_authentication_error(exc: BaseException) -> None:
+    """Auth failures must not become a successful tool payload.
+
+    ``except Exception`` below keeps a tool's normal shape (``banks: []`` and
+    the like) when something unexpected happens. An ``AuthenticationError`` is
+    not that. Returning it as JSON makes the HTTP response 200, so an MCP
+    client never sees 401 and never refreshes. Mark the request and propagate;
+    the HTTP transport turns that mark into 401.
+    """
+    if isinstance(exc, AuthenticationError):
+        from hindsight_api.api.mcp import mark_mcp_authentication_failed
+
+        mark_mcp_authentication_failed()
+        raise exc
+
+
 def _error_json(message: object, **extra: Any) -> str:
     """One tool error, serialized as JSON text.
 
@@ -441,6 +457,7 @@ async def _run_tool(
         logger.warning(f"Operation rejected: {e}")
         return _err(e)
     except Exception as e:
+        _reraise_authentication_error(e)
         # ValueError is handled here rather than in its own `except ValueError`
         # clause because re-raising from a clause propagates out of the whole
         # `try` — an unexpected ValueError would escape instead of reaching this.
@@ -463,12 +480,18 @@ def _get_request_context(config: MCPToolsConfig) -> RequestContext:
     api_key_id = config.api_key_id_resolver() if config.api_key_id_resolver else None
     mcp_authenticated = config.mcp_authenticated_resolver() if config.mcp_authenticated_resolver else False
     extra_headers = config.extra_headers_resolver() if config.extra_headers_resolver else {}
+    # The HTTP gate already authenticated this request and stored the schema.
+    # Carry it so the engine does not call the tenant extension again: a second
+    # lookup can fail on its own and used to be swallowed as a 200 tool result.
+    from hindsight_api.engine.memory_engine import _current_schema
+
     return RequestContext(
         api_key=api_key,
         tenant_id=tenant_id,
         api_key_id=api_key_id,
         mcp_authenticated=mcp_authenticated,
         extra_headers=extra_headers,
+        authenticated_schema=_current_schema.get(),
     )
 
 
@@ -814,7 +837,8 @@ def _apply_bank_tool_filtering(mcp: FastMCP, memory: MemoryEngine, config: MCPTo
             candidate = frozenset(enabled) if enabled is not None else _ALL_TOOLS
             try:
                 filtered = await validator.filter_mcp_tools(bank_id, request_context, candidate)
-            except Exception:
+            except Exception as e:
+                _reraise_authentication_error(e)
                 logger.warning("filter_mcp_tools raised, returning unfiltered tools", exc_info=True)
                 return enabled
             if filtered != candidate:
@@ -1060,6 +1084,7 @@ def _register_retain(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig)
                 logger.warning(f"Retain rejected: {e}")
                 return {"status": "error", "message": str(e)}
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error storing memory: {e}", exc_info=True)
                 return {"status": "error", "message": str(e)}
 
@@ -1119,6 +1144,7 @@ def _register_retain(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig)
                 logger.warning(f"Retain rejected: {e}")
                 return {"status": "error", "message": str(e)}
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error storing memory: {e}", exc_info=True)
                 return {"status": "error", "message": str(e)}
 
@@ -1185,6 +1211,7 @@ def _register_sync_retain(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsCo
                 logger.warning(f"Sync retain rejected: {e}")
                 return {"status": "error", "message": str(e)}
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error in sync retain: {e}", exc_info=True)
                 return {"status": "error", "message": str(e)}
 
@@ -1245,6 +1272,7 @@ def _register_sync_retain(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsCo
                 logger.warning(f"Sync retain rejected: {e}")
                 return {"status": "error", "message": str(e)}
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error in sync retain: {e}", exc_info=True)
                 return {"status": "error", "message": str(e)}
 
@@ -1354,6 +1382,7 @@ def _register_recall(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig)
             except ValueError as e:
                 return _error_json(e, results=[])
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error searching: {e}", exc_info=True)
                 return _error_json(e, results=[])
 
@@ -1453,6 +1482,7 @@ def _register_recall(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig)
             except ValueError as e:
                 return {"error": str(e), "results": []}
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error searching: {e}", exc_info=True)
                 return {"error": str(e), "results": []}
 
@@ -1552,6 +1582,7 @@ def _register_reflect(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig
                 logger.warning(f"Reflect rejected: {e}")
                 return json.dumps({"error": str(e)})
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error reflecting: {e}", exc_info=True)
                 return _error_json(e, text="")
 
@@ -1645,6 +1676,7 @@ def _register_reflect(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig
                 logger.warning(f"Reflect rejected: {e}")
                 return {"error": str(e)}
             except Exception as e:
+                _reraise_authentication_error(e)
                 logger.error(f"Error reflecting: {e}", exc_info=True)
                 return {"error": str(e), "text": ""}
 
@@ -1681,6 +1713,7 @@ def _register_list_banks(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsCon
             logger.warning(f"Operation rejected: {e}")
             return json.dumps({"error": str(e), "banks": []})
         except Exception as e:
+            _reraise_authentication_error(e)
             logger.error(f"Error listing banks: {e}", exc_info=True)
             return _error_json(e, banks=[])
 
@@ -1723,6 +1756,7 @@ def _register_create_bank(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsCo
             logger.warning(f"Operation rejected: {e}")
             return json.dumps({"error": str(e)})
         except Exception as e:
+            _reraise_authentication_error(e)
             logger.error(f"Error creating bank: {e}", exc_info=True)
             return _error_json(e)
 
@@ -4375,6 +4409,7 @@ def _register_get_bank_stats(mcp: FastMCP, memory: MemoryEngine, config: MCPTool
             logger.warning(f"Operation rejected: {e}")
             return json.dumps({"error": str(e)})
         except Exception as e:
+            _reraise_authentication_error(e)
             logger.error(f"Error getting bank stats: {e}", exc_info=True)
             return _error_json(e)
 
