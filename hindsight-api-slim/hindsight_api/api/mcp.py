@@ -63,6 +63,25 @@ _current_mcp_authenticated: ContextVar[bool] = ContextVar("current_mcp_authentic
 # so no single dict is shared as a default across requests.
 _current_extra_headers: ContextVar[dict[str, str] | None] = ContextVar("current_extra_headers", default=None)
 
+# Set when a tool sees AuthenticationError after the gate. The HTTP transport
+# reads it while writing the response and turns that response into 401.
+_mcp_auth_failed: ContextVar[bool] = ContextVar("mcp_auth_failed", default=False)
+
+# RFC 6750. Present on every MCP 401 so a client can refresh without parsing
+# the error text (which may quote an upstream status such as 403).
+_AUTH_CHALLENGE = 'Bearer error="invalid_token"'
+
+
+def mark_mcp_authentication_failed() -> None:
+    """Record that this request failed authentication inside a tool."""
+    _mcp_auth_failed.set(True)
+
+
+def _headers_with_auth_challenge(headers: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
+    if any(name.lower() == b"www-authenticate" for name, _ in headers):
+        return headers
+    return [*headers, (b"www-authenticate", _AUTH_CHALLENGE.encode())]
+
 
 def get_current_bank_id() -> str | None:
     """Get the current bank_id from context."""
@@ -431,6 +450,10 @@ class MCPMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # One request, one flag. A tool on this request may set it; the next
+        # request on the same task must not inherit the failure.
+        _mcp_auth_failed.set(False)
+
         # Handle GET-before-POST gracefully (Claude Code v2.1.84+ sends GET probe before POST initialize).
         # Without a valid Mcp-Session-Id, GET has no meaningful response — return 200 OK so
         # the client proceeds to POST initialize instead of marking the server as failed.
@@ -576,13 +599,22 @@ class MCPMiddleware:
             async def send_wrapper(message):
                 nonlocal is_sse_response
                 if message["type"] == "http.response.start":
+                    if _mcp_auth_failed.get():
+                        # The tool caught an auth failure only long enough to mark
+                        # it, then the MCP session wrote a normal 200. Clients
+                        # refresh on HTTP 401, not on a tool payload.
+                        message = {
+                            **message,
+                            "status": 401,
+                            "headers": _headers_with_auth_challenge(list(message.get("headers", []))),
+                        }
                     for header_name, header_value in message.get("headers", []):
                         if header_name == b"content-type" and b"text/event-stream" in header_value:
                             is_sse_response = True
                             break
                 if message["type"] == "http.response.body" and bank_id_from_path and is_sse_response:
                     body = message.get("body", b"")
-                    if body and b"/messages" in body:
+                    if isinstance(body, bytes) and b"/messages" in body:
                         # Rewrite /messages to /{bank_id}/messages in SSE endpoint event
                         body = body.replace(b"data: /messages", f"data: /{bank_id}/messages".encode())
                         message = {**message, "body": body}
@@ -624,6 +656,8 @@ class MCPMiddleware:
         headers = [(b"content-type", b"application/json")]
         for key, value in (extra_headers or {}).items():
             headers.append((key.encode(), value.encode()))
+        if status == 401:
+            headers = _headers_with_auth_challenge(headers)
         await send(
             {
                 "type": "http.response.start",
