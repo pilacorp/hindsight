@@ -8,6 +8,7 @@ This module provides the core tool logic used by both:
 import json
 import logging
 from collections.abc import Awaitable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any, Callable, Literal, get_args
@@ -27,6 +28,7 @@ from hindsight_api.engine.memory_engine import KEEP_PARENT, Budget
 from hindsight_api.engine.response_models import VALID_RECALL_FACT_TYPES, MinScores, TemporalWindow
 from hindsight_api.engine.search.tags import TagGroup, TagsMatch
 from hindsight_api.extensions import AuthenticationError, OperationValidationError
+from hindsight_api.metrics import get_metrics_collector
 from hindsight_api.models import RequestContext
 
 _TAG_GROUP_LIST_ADAPTER = TypeAdapter(list[TagGroup])
@@ -1277,6 +1279,24 @@ def _register_sync_retain(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsCo
                 return {"status": "error", "message": str(e)}
 
 
+@contextmanager
+def _record_mcp_recall(bank_id: str, budget: str, max_tokens: int):
+    """Count one MCP recall on the usage ledger.
+
+    The HTTP recall route records itself. MCP recall calls the engine directly,
+    and async retain is recorded later by the worker, so an unwrapped MCP recall
+    never appears on the usage page.
+    """
+    with get_metrics_collector().record_operation(
+        "recall",
+        bank_id=bank_id,
+        source="mcp",
+        budget=budget,
+        max_tokens=max_tokens,
+    ):
+        yield
+
+
 def _register_recall(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig) -> None:
     """Register the recall tool."""
     description = config.recall_description or DEFAULT_MCP_RECALL_DESCRIPTION
@@ -1370,7 +1390,8 @@ def _register_recall(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig)
                 if temporal_window is not None:
                     recall_kwargs["temporal_window"] = TemporalWindow.model_validate(temporal_window)
 
-                recall_result = await memory.recall_async(**recall_kwargs)
+                with _record_mcp_recall(target_bank, budget_enum.value, max_tokens):
+                    recall_result = await memory.recall_async(**recall_kwargs)
 
                 # Compact, as FastMCP already sends the session-bank copy's dict. This
                 # used indent=2, which was about a fifth of a recall response that
@@ -1473,7 +1494,8 @@ def _register_recall(mcp: FastMCP, memory: MemoryEngine, config: MCPToolsConfig)
                 if temporal_window is not None:
                     recall_kwargs["temporal_window"] = TemporalWindow.model_validate(temporal_window)
 
-                recall_result = await memory.recall_async(**recall_kwargs)
+                with _record_mcp_recall(target_bank, budget_enum.value, max_tokens):
+                    recall_result = await memory.recall_async(**recall_kwargs)
 
                 return recall_result.model_dump()
             except OperationValidationError as e:

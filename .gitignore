@@ -80,3 +80,4 @@ blog-post*
 # Local NDA Harness memory and task records
 .nda-harness/profile.json
 .nda-harness/tasks/
+.nda-harness/skill-selection/

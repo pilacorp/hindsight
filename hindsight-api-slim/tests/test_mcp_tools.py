@@ -1,6 +1,7 @@
 """Tests for the shared MCP tools module."""
 
 import json
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -1345,6 +1346,102 @@ class TestRecallNewParams:
         call_kwargs = mock_memory.recall_async.call_args.kwargs
         assert "tag_groups" in call_kwargs
         assert len(call_kwargs["tag_groups"]) == 1
+
+    async def test_recall_is_counted_for_both_mcp_shapes(self, mock_memory, monkeypatch):
+        """MCP recall must hit the same usage counter the usage page reads.
+
+        HTTP recall records itself in the route. MCP calls the engine directly,
+        so without this note the page shows retain (recorded by the worker) and
+        a recall count of zero.
+        """
+        recorded: list[dict[str, Any]] = []
+
+        class _Probe:
+            @contextmanager
+            def record_operation(self, operation, bank_id, source="api", budget=None, max_tokens=None):
+                success = True
+                try:
+                    yield
+                except Exception:
+                    success = False
+                    raise
+                finally:
+                    recorded.append(
+                        {
+                            "operation": operation,
+                            "bank_id": bank_id,
+                            "source": source,
+                            "budget": budget,
+                            "max_tokens": max_tokens,
+                            "success": success,
+                        }
+                    )
+
+        monkeypatch.setattr("hindsight_api.mcp_tools.get_metrics_collector", lambda: _Probe())
+
+        for include_bank_id in (True, False):
+            mcp = _make_mcp_server(mock_memory, {"recall"}, include_bank_id=include_bank_id)
+            await _tools(mcp)["recall"].fn(query="test", budget="mid", max_tokens=128)
+
+        assert recorded == [
+            {
+                "operation": "recall",
+                "bank_id": "test-bank",
+                "source": "mcp",
+                "budget": "mid",
+                "max_tokens": 128,
+                "success": True,
+            },
+            {
+                "operation": "recall",
+                "bank_id": "test-bank",
+                "source": "mcp",
+                "budget": "mid",
+                "max_tokens": 128,
+                "success": True,
+            },
+        ]
+
+    async def test_rejected_recall_is_not_counted(self, mock_memory, monkeypatch):
+        recorded: list[str] = []
+
+        class _Probe:
+            @contextmanager
+            def record_operation(self, operation, bank_id, source="api", budget=None, max_tokens=None):
+                recorded.append(operation)
+                yield
+
+        monkeypatch.setattr("hindsight_api.mcp_tools.get_metrics_collector", lambda: _Probe())
+        mcp = _make_mcp_server(mock_memory, {"recall"})
+        result = await _tools(mcp)["recall"].fn(
+            query="test",
+            tags=["project:x"],
+            tag_groups=[{"tags": ["closeout"], "match": "any_strict"}],
+        )
+        assert "mutually exclusive" in result
+        assert recorded == []
+
+    async def test_failed_recall_counts_as_failure(self, mock_memory, monkeypatch):
+        recorded: list[bool] = []
+
+        class _Probe:
+            @contextmanager
+            def record_operation(self, operation, bank_id, source="api", budget=None, max_tokens=None):
+                success = True
+                try:
+                    yield
+                except Exception:
+                    success = False
+                    raise
+                finally:
+                    recorded.append(success)
+
+        monkeypatch.setattr("hindsight_api.mcp_tools.get_metrics_collector", lambda: _Probe())
+        mock_memory.recall_async.side_effect = RuntimeError("search down")
+        mcp = _make_mcp_server(mock_memory, {"recall"}, include_bank_id=False)
+        result = await _tools(mcp)["recall"].fn(query="test")
+        assert result["error"] == "search down"
+        assert recorded == [False]
 
 
 @pytest.mark.asyncio
