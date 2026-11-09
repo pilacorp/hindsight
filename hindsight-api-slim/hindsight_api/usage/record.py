@@ -6,9 +6,23 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from hindsight_api.usage.view import operation_delta, user_id_from_schema
+from hindsight_api.usage.view import CODING_AGENTS, operation_delta, user_id_from_schema
 
 logger = logging.getLogger(__name__)
+
+
+def note_coding_agent_connection(schema: str, header_values: list[str]) -> None:
+    from hindsight_api.usage.store import get_usage_store
+
+    store = get_usage_store()
+    user_id = user_id_from_schema(schema)
+    if store is None or user_id is None:
+        return
+    client = header_values[0].strip().casefold() if len(header_values) == 1 else ""
+    if client not in CODING_AGENTS:
+        client = "other"
+    task = asyncio.create_task(store.add_coding_agent_connection(user_id, client, datetime.now(timezone.utc)))
+    task.add_done_callback(_log_task_failure)
 
 
 def note_operation(schema: str | None, operation: str, success: bool, cancelled: bool, prefix: str = "user") -> None:

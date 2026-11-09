@@ -6,7 +6,7 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 
 from hindsight_api.usage.http import UsageReadError
-from hindsight_api.usage.view import COUNTERS, DailyUsage, Member, schema_from_user_id
+from hindsight_api.usage.view import COUNTERS, DailyCodingAgentUsage, DailyUsage, Member, UsageRows, schema_from_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,25 @@ CREATE TABLE IF NOT EXISTS hindsight_usage.daily (
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (user_id, day)
 )
+"""
+
+_ENSURE_CODING_AGENTS = """
+CREATE TABLE IF NOT EXISTS hindsight_usage.coding_agents_daily (
+    user_id uuid NOT NULL,
+    day date NOT NULL,
+    client text NOT NULL CHECK (client IN ('cursor', 'claude-code', 'codex', 'other')),
+    count bigint NOT NULL,
+    last_seen timestamptz NOT NULL,
+    PRIMARY KEY (user_id, day, client)
+)
+"""
+
+_UPSERT_CODING_AGENT = """
+INSERT INTO hindsight_usage.coding_agents_daily (user_id, day, client, count, last_seen)
+VALUES ($1::uuid, $2::date, $3, 1, $4)
+ON CONFLICT (user_id, day, client) DO UPDATE SET
+    count = hindsight_usage.coding_agents_daily.count + 1,
+    last_seen = GREATEST(hindsight_usage.coding_agents_daily.last_seen, EXCLUDED.last_seen)
 """
 
 _COUNT_COLUMNS = ", ".join(COUNTERS)
@@ -81,6 +100,7 @@ class UsageStore:
         async with self._pool.acquire() as conn:
             await conn.execute(schema_sql)
             await conn.execute(table_sql)
+            await conn.execute(_ENSURE_CODING_AGENTS)
 
     async def add_counts(self, user_id: str, day: date, delta: dict[str, int]) -> None:
         """Add activity or token counts. A database failure is logged and not raised."""
@@ -93,7 +113,11 @@ class UsageStore:
         except Exception:
             logger.exception("Usage counter write failed for %s", user_id)
 
-    async def load_members_and_rows(self) -> tuple[list[Member], list[DailyUsage]]:
+    async def add_coding_agent_connection(self, user_id: str, client: str, at: datetime) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(_UPSERT_CODING_AGENT, user_id, at.date(), client, at)
+
+    async def load_members_and_rows(self) -> UsageRows:
         start = datetime.now(timezone.utc).date() - timedelta(days=29)
         try:
             async with self._pool.acquire() as conn:
@@ -103,6 +127,14 @@ class UsageStore:
                     SELECT user_id::text AS user_id, day, {_COUNT_COLUMNS},
                            banks, documents, memory_units, updated_at
                     FROM hindsight_usage.daily
+                    WHERE day >= $1
+                    """,
+                    start,
+                )
+                coding_agents = await conn.fetch(
+                    """
+                    SELECT user_id::text AS user_id, day, client, count, last_seen
+                    FROM hindsight_usage.coding_agents_daily
                     WHERE day >= $1
                     """,
                     start,
@@ -130,7 +162,14 @@ class UsageStore:
             )
             for row in daily
         ]
-        return members, rows
+        return UsageRows(
+            members=members,
+            daily=rows,
+            coding_agents=[
+                DailyCodingAgentUsage(row["user_id"], row["day"], row["client"], row["count"], row["last_seen"])
+                for row in coding_agents
+            ],
+        )
 
     async def snapshot_footprints(self, prefix: str = "user") -> None:
         """Store today's bank, document, and memory-unit counts. Missing schemas store zeros."""

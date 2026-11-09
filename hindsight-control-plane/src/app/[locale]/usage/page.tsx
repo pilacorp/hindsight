@@ -5,6 +5,7 @@ import { Globe } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ import {
 /** A trend needs a few points to read as one; a single day is shown as totals only. */
 const MIN_TREND_POINTS = 4;
 const WHOLE_TEAM = "__team__";
+const CODING_AGENT_NAMES = { cursor: "Cursor", "claude-code": "Claude", codex: "Codex" };
 
 export default function UsagePage() {
   const t = useTranslations("usage");
@@ -212,6 +214,41 @@ function Dashboard({
         />
       </div>
 
+      {body.coding_agents ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <h2 className="text-sm font-semibold text-foreground">{t("codingAgentsTitle")}</h2>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm tabular-nums">
+                <thead className="border-b border-border text-xs text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="py-2 pr-3">{t("codingAgent")}</th>
+                    <th scope="col" className="py-2 pr-3">{t("mcpConnections")}</th>
+                    <th scope="col" className="py-2">{t("codingAgentLastSeen")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {body.coding_agents.map(({ client, count, last_seen }) => (
+                    <tr key={client} className="border-b border-border last:border-0">
+                      <th scope="row" className="py-2 pr-3 font-medium">
+                        {client === "other" ? t("codingAgentOther") : CODING_AGENT_NAMES[client]}
+                      </th>
+                      <td className="py-2 pr-3">{count.toLocaleString()}</td>
+                      <td className="py-2">
+                        {last_seen ? (
+                          <time dateTime={last_seen}>{formatAbsoluteDateTime(last_seen)}</time>
+                        ) : t("codingAgentNoActivity")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       <UsageMemberTable members={body.members} selected={selected} onSelect={onSelect} />
     </div>
   );

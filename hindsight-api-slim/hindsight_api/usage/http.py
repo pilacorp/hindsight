@@ -8,7 +8,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 
-from hindsight_api.usage.view import DailyUsage, Member, build_usage_view, parse_range
+from hindsight_api.usage.view import UsageRows, build_usage_view, parse_range
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class UsageReadError(Exception):
     """The ledger or account directory could not be read. Nothing partial is returned."""
 
 
-Loader = Callable[[], Awaitable[tuple[list[Member], list[DailyUsage]]]]
+Loader = Callable[[], Awaitable[UsageRows]]
 
 
 async def team_usage_payload(
@@ -34,13 +34,14 @@ async def team_usage_payload(
     except ValueError:
         raise HTTPException(status_code=400, detail="range must be today, 7d, or 30d") from None
     try:
-        members, rows = await load()
+        rows = await load()
     except UsageReadError:
         logger.exception("Team usage read failed")
         raise HTTPException(status_code=503, detail="Team usage is unavailable.") from None
     view = build_usage_view(
-        members,
-        rows,
+        rows.members,
+        rows.daily,
+        coding_agents=rows.coding_agents,
         today=today or datetime.now(timezone.utc).date(),
         range_name=range_name,
         span_days=span_days,

@@ -18,6 +18,7 @@ COUNTERS = (
     "output_tokens",
     "cached_input_tokens",
 )
+CODING_AGENTS = ("cursor", "claude-code", "codex", "other")
 _RANGES = {"today": 1, "7d": 7, "30d": 30}
 
 
@@ -82,6 +83,22 @@ class DailyUsage:
 
 
 @dataclass(frozen=True)
+class DailyCodingAgentUsage:
+    user_id: str
+    day: date
+    client: str
+    count: int
+    last_seen: datetime
+
+
+@dataclass(frozen=True)
+class UsageRows:
+    members: list[Member]
+    daily: list[DailyUsage]
+    coding_agents: list[DailyCodingAgentUsage]
+
+
+@dataclass(frozen=True)
 class UsageView:
     body: dict
     omitted_user_ids: list[str]
@@ -134,6 +151,7 @@ def build_usage_view(
     today: date,
     range_name: str,
     span_days: int,
+    coding_agents: list[DailyCodingAgentUsage] | None = None,
 ) -> UsageView:
     """Public payload. Current members with an email only; their rows are the team total."""
     days = _window(today, span_days)
@@ -198,6 +216,13 @@ def build_usage_view(
             }
         )
 
+    agent_counts = dict.fromkeys(CODING_AGENTS, 0)
+    last_seen: dict[str, datetime] = {}
+    for row in coding_agents or []:
+        if row.user_id in listed_ids and row.day in day_set and row.client in agent_counts:
+            agent_counts[row.client] += row.count
+            last_seen[row.client] = max(last_seen.get(row.client, row.last_seen), row.last_seen)
+
     return UsageView(
         body={
             "range": range_name,
@@ -209,6 +234,14 @@ def build_usage_view(
                 "series": [team_series[day] for day in days],
             },
             "members": member_bodies,
+            "coding_agents": [
+                {
+                    "client": client,
+                    "count": count,
+                    "last_seen": last_seen[client].isoformat() if client in last_seen else None,
+                }
+                for client, count in agent_counts.items()
+            ],
         },
         omitted_user_ids=omitted,
     )

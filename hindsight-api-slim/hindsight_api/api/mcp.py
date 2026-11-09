@@ -6,6 +6,9 @@ import os
 from contextvars import ContextVar
 
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_http_request
+from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
+from mcp.types import InitializeRequest, InitializeResult
 
 from hindsight_api import MemoryEngine
 from hindsight_api import __version__ as HINDSIGHT_VERSION
@@ -21,6 +24,7 @@ from hindsight_api.extensions import MCPExtension, load_extension
 from hindsight_api.extensions.tenant import AuthenticationError
 from hindsight_api.mcp_tools import _ALL_TOOLS, MCPToolsConfig, register_mcp_tools
 from hindsight_api.models import RequestContext
+from hindsight_api.usage.record import note_coding_agent_connection
 
 # Configure logging from the resolved config (HINDSIGHT_API_LOG_LEVEL).
 _log_level_str = get_config().log_level.lower()
@@ -130,6 +134,24 @@ def _build_mcp_tool_descriptions(extra_instructions: str | None) -> tuple[str | 
     return DEFAULT_MCP_RETAIN_DESCRIPTION + suffix, DEFAULT_MCP_RECALL_DESCRIPTION + suffix
 
 
+class _CodingAgentUsageMiddleware(Middleware):
+    async def on_initialize(
+        self,
+        context: MiddlewareContext[InitializeRequest],
+        call_next: CallNext[InitializeRequest, InitializeResult | None],
+    ) -> InitializeResult | None:
+        result = await call_next(context)
+        schema = _current_schema.get()
+        if isinstance(result, InitializeResult) and schema:
+            try:
+                request = get_http_request()
+                if request.method == "POST":
+                    note_coding_agent_connection(schema, request.headers.getlist("X-Hindsight-Coding-Agent"))
+            except Exception:
+                logger.exception("Unable to record coding agent connection")
+        return result
+
+
 def create_mcp_server(memory: MemoryEngine, multi_bank: bool = True) -> FastMCP:
     """
     Create and configure the Hindsight MCP server.
@@ -143,6 +165,7 @@ def create_mcp_server(memory: MemoryEngine, multi_bank: bool = True) -> FastMCP:
         Configured FastMCP server instance
     """
     mcp = FastMCP("hindsight-mcp-server", version=HINDSIGHT_VERSION)
+    mcp.add_middleware(_CodingAgentUsageMiddleware())
 
     global_config = _get_raw_config()
 

@@ -127,6 +127,27 @@ describe("UsagePage", () => {
     const messages = await screen.findAllByText("emptyActivity");
     expect(messages.length).toBeGreaterThan(0);
     expect(screen.getByText("emptyStored")).toBeTruthy();
+    expect(screen.queryByText("codingAgentsTitle")).toBeNull();
+  });
+
+  it("shows team coding-agent counts and last seen when the API provides them", async () => {
+    const lastSeen = "2026-10-27T00:00:00Z";
+    respond(200, {
+      ...body([]),
+      coding_agents: [
+        { client: "cursor", count: 0, last_seen: null },
+        { client: "claude-code", count: 0, last_seen: null },
+        { client: "codex", count: 2, last_seen: lastSeen },
+        { client: "other", count: 0, last_seen: null },
+      ],
+    } satisfies UsageBody);
+    render(<UsagePage />);
+    await screen.findByRole("heading", { name: "codingAgentsTitle" });
+    const card = screen.getByRole("rowheader", { name: "Codex" }).closest("table") as HTMLElement;
+    expect(within(card).getAllByRole("row")).toHaveLength(5);
+    expect(within(card).getByRole("rowheader", { name: "Codex" })).toBeTruthy();
+    expect(within(card).getByText("2").closest("tr")?.querySelector("time")?.dateTime).toBe(lastSeen);
+    expect(within(card).getAllByText("codingAgentNoActivity")).toHaveLength(3);
   });
 
   it("re-sorts the member table when a column header is chosen", async () => {

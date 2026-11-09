@@ -38,6 +38,11 @@ export type UsageBody = {
   snapshot_at: string | null;
   team: UsageSlice;
   members: MemberUsage[];
+  coding_agents?: {
+    client: "cursor" | "claude-code" | "codex" | "other";
+    count: number;
+    last_seen: string | null;
+  }[];
 };
 
 export type UsageSummary = {

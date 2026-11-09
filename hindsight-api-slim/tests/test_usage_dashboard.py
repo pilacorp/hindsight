@@ -1,7 +1,8 @@
 """Public team usage dashboard. Planned cases from specs/usage-dashboard.md."""
 
+from dataclasses import replace
 from datetime import date, datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -10,8 +11,10 @@ from fastapi.testclient import TestClient
 from hindsight_api.api import create_app
 from hindsight_api.usage.http import UsageReadError, team_usage_payload
 from hindsight_api.usage.view import (
+    DailyCodingAgentUsage,
     DailyUsage,
     Member,
+    UsageRows,
     build_usage_view,
     operation_delta,
     parse_range,
@@ -44,6 +47,32 @@ def test_seven_day_window_sums_inside_and_drops_the_day_before():
     assert [point["day"] for point in body["team"]["series"]][0] == "2026-10-22"
     assert [point["day"] for point in body["team"]["series"]][-1] == "2026-10-28"
     assert len(body["team"]["series"]) == 7
+
+
+def test_coding_agent_activity_is_team_only_and_scoped_to_the_selected_range():
+    earlier = datetime(2026, 10, 27, tzinfo=timezone.utc)
+    latest = datetime(2026, 10, 28, tzinfo=timezone.utc)
+    body = build_usage_view(
+        [Member(USER_A, "a@example.com")],
+        [],
+        coding_agents=[
+            DailyCodingAgentUsage(USER_A, earlier.date(), "codex", 2, earlier),
+            DailyCodingAgentUsage(USER_A, TODAY, "codex", 3, latest),
+            DailyCodingAgentUsage(USER_A, TODAY, "other", 1, latest),
+            DailyCodingAgentUsage(USER_GONE, TODAY, "cursor", 9, latest),
+            DailyCodingAgentUsage(USER_A, date(2026, 10, 21), "cursor", 9, earlier),
+        ],
+        today=TODAY,
+        range_name="7d",
+        span_days=7,
+    ).body
+    assert body["coding_agents"] == [
+        {"client": "cursor", "count": 0, "last_seen": None},
+        {"client": "claude-code", "count": 0, "last_seen": None},
+        {"client": "codex", "count": 5, "last_seen": latest.isoformat()},
+        {"client": "other", "count": 1, "last_seen": latest.isoformat()},
+    ]
+    assert "coding_agents" not in body["members"][0]
 
 
 def test_deleted_user_row_is_left_out_of_members_and_the_team_total():
@@ -165,13 +194,14 @@ def usage_client():
     return TestClient(app)
 
 
-async def _two_members():
-    return (
-        [Member(USER_A, "a@example.com"), Member(USER_B, "b@example.com")],
-        [
+async def _two_members() -> UsageRows:
+    return UsageRows(
+        members=[Member(USER_A, "a@example.com"), Member(USER_B, "b@example.com")],
+        daily=[
             _row(USER_A, TODAY, retain_success=2, input_tokens=5),
             _row(USER_B, TODAY, recall_success=1, output_tokens=7),
         ],
+        coding_agents=[],
     )
 
 
@@ -240,3 +270,63 @@ def test_registered_route_serves_members_when_the_extension_is_active(registered
 def test_registered_route_is_404_without_the_supabase_extension(registered_app_client):
     response = registered_app_client(object()).get("/v1/default/usage/team")
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize("stateless", [True, False])
+def test_http_mcp_initialization_records_only_authenticated_connections(monkeypatch, stateless):
+    from hindsight_api.api import mcp
+    from hindsight_api.extensions.tenant import AuthenticationError, TenantContext
+    from hindsight_api.usage import store
+
+    config = replace(mcp._get_raw_config(), mcp_stateless=stateless)
+    monkeypatch.setattr(mcp, "_get_raw_config", lambda: config)
+    monkeypatch.delenv("HINDSIGHT_API_HTTP_EXTENSION", raising=False)
+    monkeypatch.setattr(mcp, "MCP_AUTH_TOKEN", None)
+    memory = MagicMock()
+    memory.resolve_bank_alias = AsyncMock(return_value="default")
+    memory.close = AsyncMock()
+    memory._backend.supports_worker_poller = False
+    memory.tenant_extension.on_startup = AsyncMock()
+    memory.tenant_extension.on_shutdown = AsyncMock()
+
+    async def authenticate(context):
+        if context.api_key != "valid":
+            raise AuthenticationError("invalid token")
+        return TenantContext("user_" + USER_A.replace("-", "_"))
+
+    memory.tenant_extension.authenticate_mcp = authenticate
+    memory._tenant_extension = memory.tenant_extension
+    ledger = MagicMock()
+    ledger.add_coding_agent_connection = AsyncMock()
+    monkeypatch.setattr(store, "get_usage_store", lambda: ledger)
+    app = create_app(memory, mcp_api_enabled=True, initialize_memory=False)
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "cursor", "version": "1"},
+        },
+    }
+    header = "X-Hindsight-Coding-Agent"
+    with TestClient(app) as client:
+        assert client.get("/mcp/").status_code == 200
+        assert client.post("/mcp/", json=initialize).status_code == 401
+        for values in [[" CuRsOr "], ["claude-code"], ["codex"], [], [""], ["unknown"], ["cursor", "codex"]]:
+            response = client.post(
+                "/mcp/",
+                headers=[("Authorization", "Bearer valid"), *((header, value) for value in values)],
+                json=initialize,
+            )
+            assert response.status_code == 200, response.text
+            assert '"result"' in response.text
+        client.post(
+            "/mcp/",
+            headers={"Authorization": "Bearer valid", header: "cursor"},
+            json={**initialize, "params": {}},
+        )
+    assert [call.args[:2] for call in ledger.add_coding_agent_connection.await_args_list] == [
+        (USER_A, client) for client in ("cursor", "claude-code", "codex", "other", "other", "other", "other")
+    ]
