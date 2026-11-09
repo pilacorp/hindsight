@@ -69,6 +69,11 @@ HS256 and no service key is set.
   Signed-in users can choose **Account → Change password** in the header or visit
   `/account/change-password`. Configure the SMTP relay and public app URL using
   the [Supabase deployment instructions](../supabase/README.md#smtp-and-password-flows).
+- To attribute MCP connections on `/usage`, set the optional HTTP header
+  `X-Hindsight-Coding-Agent` to `cursor`, `codex`, or `claude-code` in the client’s
+  Hindsight MCP server configuration. Successful authenticated initializations with
+  missing or unsupported values count under **Other**. The dashboard exposes team
+  counts and last-seen times for the selected range.
 - `/usage` is public. It publishes each current account's email plus usage counts
   (retain, recall, reflect, tokens, and stored footprint). It does not publish
   memory content. The API role needs `SELECT` on `auth.users (id, email)` only:
