@@ -3,7 +3,7 @@
 Feature issue: https://github.com/pilacorp/hindsight/issues/51
 Issue updated at: 2026-11-09T08:23:04Z
 Consulted checkout: `226a4cc27b2089e9e5c7b38c556d5e1af9311243`
-Status: Design approved in chat on 2026-11-09. Client attribution verification and spec PR review and merge are pending.
+Status: Design approved in chat on 2026-11-09. The owner selected the three canonical client names. Live-client verification and review of this amendment are pending.
 
 ## Outcome
 
@@ -14,7 +14,7 @@ A connection is one successful, authenticated MCP `initialize` exchange in the N
 ## Attribution and persistence
 
 - Observe a successful MCP initialize exchange at the server dispatch boundary where the validated initialization payload and authenticated tenant context are available. Use the request's `clientInfo.name`. Count the exchange once after the successful protocol response. Do not count GET probes, authentication failures, protocol errors, tool discovery, memory calls, or REST traffic. The signal works at initialization without retaining client metadata across requests.
-- Normalize the name with trimming and case folding, then use an exact allowlist derived from sanitized initialization fixtures from the supported clients. Before spec approval, add the actual normalized names and source client versions for Cursor, Claude, and Codex. The repo's synthetic MCP fixtures establish the payload shape only. Missing or unrecognized names remain unattributed. Client-declared identity is advisory and never grants access.
+- Trim and case-fold `clientInfo.name`, then match the exact configured values `cursor` → Cursor, `claude-code` → Claude, and `codex` → Codex. Missing or unrecognized names remain unattributed. Client-declared identity is advisory and never grants access.
 - Add a companion daily ledger in the existing shared `hindsight_usage` schema, keyed by authenticated user ID, UTC day, and normalized client enum. Persist an atomic count and maximum UTC timestamp for recognized clients. Use the existing team usage eligibility rules, with no writes when the usage store is inactive. Preserve existing metering, and log sanitized counter-write failures without affecting the MCP response. No historical backfill.
 - Expose a team-only `coding_agents` list in the existing team usage response. Each row contains the normalized client enum, count, and nullable UTC last-seen timestamp. Use the same current-member eligibility and range as existing team totals. Last seen is the maximum timestamp within the selected range. Exclude unattributed requests from the three rows. Do not expose raw client names, versions, headers, user identifiers, or a per-person client breakdown.
 
@@ -35,4 +35,4 @@ Create the companion ledger through the existing usage store schema initializati
 | AC-05 | Inspect the public API and UI with mixed-client history | The payload contains only aggregate client counts and timestamps, and no raw identity, user mapping, or memory content. |
 | AC-06 | Run the page against an older API and then an upgraded API with an empty ledger | The older response still renders the existing dashboard. The upgraded response shows three empty rows. |
 
-Planned coverage includes MCP integration tests, ledger and aggregation tests, and Control Plane component tests. The three real-client fixtures and review and merge references are pending. Application tests have not run for this draft.
+Planned coverage includes MCP integration tests, ledger and aggregation tests, and Control Plane component tests. The three canonical names are owner-selected. Verify them against sanitized real-client initialization samples before implementation, as required by issue #51. No live-client verification has been performed for this amendment. Application tests have not run for this draft.
